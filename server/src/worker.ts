@@ -264,11 +264,15 @@ process.on('unhandledRejection', (reason: unknown) => {
   console.error('[Worker] Unhandled promise rejection:', reason);
 });
 
+export { startWorker };
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Entry point
 // ─────────────────────────────────────────────────────────────────────────────
 
-startWorker().catch((err: unknown) => {
-  console.error('[Worker] Fatal startup error:', err);
-  process.exit(1);
-});
+if (require.main === module) {
+  startWorker().catch((err: unknown) => {
+    console.error('[Worker] Fatal startup error:', err);
+    process.exit(1);
+  });
+}

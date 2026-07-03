@@ -17,6 +17,7 @@ import userRoutes     from './routes/user.routes';
 import jobRoutes      from './routes/job.routes';
 import proposalRoutes from './routes/proposal.routes';
 import { closeRabbitMQ } from './config/rabbitmq';
+import { startWorker } from './worker';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // App setup
@@ -119,6 +120,13 @@ async function bootstrap(): Promise<void> {
   try {
     await prisma.$connect();
     console.log('✅ Database connected successfully');
+
+    // Run the background worker inside the same process (useful for single-container free-tier hostings like Render)
+    if (process.env.RUN_WORKER === 'true') {
+      startWorker().catch((err: unknown) => {
+        console.error('[Worker] Failed to start inline worker:', err);
+      });
+    }
 
     app.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
