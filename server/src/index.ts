@@ -23,6 +23,7 @@ import { closeRabbitMQ } from './config/rabbitmq';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
 
 // ── Core middleware ──────────────────────────────────────────────────────────
