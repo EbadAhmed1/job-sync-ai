@@ -123,7 +123,7 @@ async function bootstrap(): Promise<void> {
 
     // Run the background worker inside the same process (useful for single-container free-tier hostings like Render)
     if (process.env.RUN_WORKER === 'true') {
-      startWorker().catch((err: unknown) => {
+      startWorker(true).catch((err: unknown) => {
         console.error('[Worker] Failed to start inline worker:', err);
       });
     }

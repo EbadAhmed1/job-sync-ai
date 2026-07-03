@@ -2,8 +2,9 @@
  * ╔═══════════════════════════════════════════════════════════════════════════╗
  * ║                         Proposal Generation Worker                       ║
  * ║                                                                           ║
- * ║  This is a STANDALONE process — it does NOT import Express.               ║
- * ║  Run it separately:  npx ts-node src/worker.ts                           ║
+ * ║  Can run as:                                                              ║
+ * ║    1. STANDALONE process: npx ts-node src/worker.ts                      ║
+ * ║    2. INLINE with Express: set RUN_WORKER=true env var                   ║
  * ║                                                                           ║
  * ║  Responsibilities:                                                        ║
  * ║  1. Connect to RabbitMQ and consume the proposal_jobs queue.             ║
@@ -16,11 +17,12 @@
 import dotenv from 'dotenv';
 dotenv.config(); // Must be the very first side-effect
 
+import amqplib, { Channel, ChannelModel, Options } from 'amqplib';
 import OpenAI from 'openai';
 import { ConsumeMessage } from 'amqplib';
 
 import { prisma } from './lib/prisma';
-import { connectWithRetry, closeRabbitMQ, PROPOSAL_QUEUE } from './config/rabbitmq';
+import { PROPOSAL_QUEUE } from './config/rabbitmq';
 import { ProposalJobMessage } from './utils/publisher';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -68,6 +70,52 @@ ${portfolioText}
 ---
 
 Write the freelance proposal now.`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dedicated consumer connection (separate from the publisher singleton)
+//
+// This avoids conflicts when the worker runs inline alongside the Express
+// server, which uses its own singleton connection via getChannel().
+// ─────────────────────────────────────────────────────────────────────────────
+
+const RABBITMQ_URL = process.env.RABBITMQ_URL ?? 'amqp://localhost:5672';
+const MAX_RECONNECT_DELAY_MS = 30_000;
+
+let workerConnection: ChannelModel | null = null;
+
+async function createConsumerChannel(): Promise<Channel> {
+  let attempt = 0;
+  while (true) {
+    try {
+      const conn = await amqplib.connect(RABBITMQ_URL as Options.Connect) as ChannelModel;
+      const ch = await conn.createChannel();
+      await ch.assertQueue(PROPOSAL_QUEUE, { durable: true });
+      await ch.prefetch(1);
+
+      conn.on('error', (err: Error) => {
+        console.error('[Worker] Consumer connection error:', err.message);
+        workerConnection = null;
+      });
+
+      conn.on('close', () => {
+        console.warn('[Worker] Consumer connection closed');
+        workerConnection = null;
+      });
+
+      workerConnection = conn;
+      console.log(`✅ Worker RabbitMQ consumer connected (attempt ${attempt + 1})`);
+      return ch;
+    } catch (err) {
+      attempt++;
+      const delay = Math.min(1000 * 2 ** (attempt - 1), MAX_RECONNECT_DELAY_MS);
+      console.error(
+        `[Worker] Consumer connection failed (attempt ${attempt}). Retrying in ${delay / 1000}s…`,
+        (err as Error).message
+      );
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -154,7 +202,7 @@ async function handleMessage(msg: ConsumeMessage): Promise<void> {
 
 async function processMessage(
   msg: ConsumeMessage | null,
-  channel: Awaited<ReturnType<typeof connectWithRetry>>
+  channel: Channel
 ): Promise<void> {
   if (!msg) return; // Consumer was cancelled (null delivery)
 
@@ -201,34 +249,45 @@ async function processMessage(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Worker bootstrap
+//
+// @param inline — true when running inside the Express server process.
+//                 Skips prisma.$connect() (already done) and avoids
+//                 process.exit() which would kill the server.
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function startWorker(): Promise<void> {
+export async function startWorker(inline = false): Promise<void> {
   console.log('🔧 Proposal generation worker starting…');
   console.log(`   Queue    : ${PROPOSAL_QUEUE}`);
   console.log(`   Model    : gpt-4o-mini`);
   console.log(`   Prefetch : 1 (sequential processing)`);
+  console.log(`   Mode     : ${inline ? 'inline (same process as Express)' : 'standalone'}`);
   console.log('');
 
   // Validate required env vars before connecting to anything
   if (!process.env.OPENAI_API_KEY) {
-    console.error('[Worker] FATAL: OPENAI_API_KEY environment variable is not set');
+    const msg = 'OPENAI_API_KEY environment variable is not set';
+    if (inline) { console.error(`[Worker] ERROR: ${msg}`); return; }
+    console.error(`[Worker] FATAL: ${msg}`);
     process.exit(1);
   }
 
   if (!process.env.DATABASE_URL) {
-    console.error('[Worker] FATAL: DATABASE_URL environment variable is not set');
+    const msg = 'DATABASE_URL environment variable is not set';
+    if (inline) { console.error(`[Worker] ERROR: ${msg}`); return; }
+    console.error(`[Worker] FATAL: ${msg}`);
     process.exit(1);
   }
 
-  // Connect to Prisma
-  await prisma.$connect();
-  console.log('✅ Database connected');
+  // Connect to Prisma (skip if inline — the server already called $connect)
+  if (!inline) {
+    await prisma.$connect();
+    console.log('✅ Database connected');
+  }
 
-  // Connect to RabbitMQ (with exponential back-off retry)
-  const channel = await connectWithRetry();
+  // Create a DEDICATED consumer connection (separate from publisher singleton)
+  const channel = await createConsumerChannel();
 
-  // Begin consuming — prefetch(1) is set inside connectWithRetry → connect()
+  // Begin consuming — prefetch(1) is set inside createConsumerChannel()
   await channel.consume(
     PROPOSAL_QUEUE,
     (msg) => processMessage(msg, channel),
@@ -236,17 +295,22 @@ async function startWorker(): Promise<void> {
   );
 
   console.log(`🚀 Worker listening on queue "${PROPOSAL_QUEUE}"`);
-  console.log('   Press Ctrl+C to stop\n');
+  if (!inline) {
+    console.log('   Press Ctrl+C to stop\n');
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Graceful shutdown
+// Graceful shutdown (only registered when running standalone)
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function shutdown(signal: string): Promise<void> {
   console.log(`\n[Worker] ${signal} received — shutting down gracefully…`);
   try {
-    await closeRabbitMQ();
+    if (workerConnection) {
+      await workerConnection.close();
+      workerConnection = null;
+    }
     await prisma.$disconnect();
     console.log('[Worker] Clean shutdown complete');
     process.exit(0);
@@ -256,22 +320,20 @@ async function shutdown(signal: string): Promise<void> {
   }
 }
 
-process.on('SIGINT',  () => void shutdown('SIGINT'));
-process.on('SIGTERM', () => void shutdown('SIGTERM'));
-
-// Catch unhandled promise rejections — log and keep the worker alive
-process.on('unhandledRejection', (reason: unknown) => {
-  console.error('[Worker] Unhandled promise rejection:', reason);
-});
-
-export { startWorker };
-
 // ─────────────────────────────────────────────────────────────────────────────
-// Entry point
+// Entry point — only runs when executed directly (not when imported)
 // ─────────────────────────────────────────────────────────────────────────────
 
 if (require.main === module) {
-  startWorker().catch((err: unknown) => {
+  process.on('SIGINT',  () => void shutdown('SIGINT'));
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
+
+  // Catch unhandled promise rejections — log and keep the worker alive
+  process.on('unhandledRejection', (reason: unknown) => {
+    console.error('[Worker] Unhandled promise rejection:', reason);
+  });
+
+  startWorker(false).catch((err: unknown) => {
     console.error('[Worker] Fatal startup error:', err);
     process.exit(1);
   });
