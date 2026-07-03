@@ -20,7 +20,7 @@ const openai = new OpenAI({
 // Cache constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TRENDS_CACHE_KEY = 'market_trends_v2';
+const TRENDS_CACHE_KEY = 'market_trends_v3'; // Bumped cache version due to schema change
 const TRENDS_CACHE_TTL = 24 * 60 * 60; // 24 hours in seconds
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -29,9 +29,8 @@ const TRENDS_CACHE_TTL = 24 * 60 * 60; // 24 hours in seconds
 
 interface DomainTrend {
   domain: string;
-  demandScore: number;
-  growthPercent: number;
-  icon: string;
+  marketSharePercent: number; // Accurate market share % (sum of all domains = 100)
+  growthPercent: number;      // YoY demand growth %
   topStacks: string[];
   hotProjects: string[];
 }
@@ -49,49 +48,43 @@ const FALLBACK_TRENDS: TrendsPayload = {
   domains: [
     {
       domain: 'AI & Machine Learning',
-      demandScore: 95,
+      marketSharePercent: 28,
       growthPercent: 42,
-      icon: '🧠',
       topStacks: ['Python', 'TensorFlow', 'PyTorch', 'LangChain', 'Hugging Face'],
       hotProjects: ['Generative AI Apps', 'RAG Pipelines', 'Computer Vision', 'AI Chatbots'],
     },
     {
-      domain: 'Cloud & DevOps',
-      demandScore: 88,
-      growthPercent: 28,
-      icon: '☁️',
-      topStacks: ['AWS', 'Docker', 'Kubernetes', 'Terraform', 'GitHub Actions'],
-      hotProjects: ['Cloud Migration', 'CI/CD Pipelines', 'Infrastructure as Code', 'Serverless Architecture'],
-    },
-    {
-      domain: 'Cybersecurity',
-      demandScore: 82,
-      growthPercent: 35,
-      icon: '🔒',
-      topStacks: ['Zero Trust', 'SIEM', 'Penetration Testing', 'Burp Suite', 'Wireshark'],
-      hotProjects: ['Cloud Security Audits', 'Threat Detection', 'Compliance Automation', 'SOC Setup'],
-    },
-    {
       domain: 'Web & Mobile Development',
-      demandScore: 90,
+      marketSharePercent: 26,
       growthPercent: 15,
-      icon: '🌐',
       topStacks: ['React', 'Next.js', 'React Native', 'Flutter', 'TypeScript'],
       hotProjects: ['SaaS Dashboards', 'E-commerce Platforms', 'Cross-platform Apps', 'Progressive Web Apps'],
     },
     {
+      domain: 'Cloud & DevOps',
+      marketSharePercent: 18,
+      growthPercent: 28,
+      topStacks: ['AWS', 'Docker', 'Kubernetes', 'Terraform', 'GitHub Actions'],
+      hotProjects: ['Cloud Migration', 'CI/CD Pipelines', 'Infrastructure as Code', 'Serverless Architecture'],
+    },
+    {
       domain: 'Data Engineering',
-      demandScore: 78,
+      marketSharePercent: 12,
       growthPercent: 31,
-      icon: '📊',
       topStacks: ['Apache Spark', 'Kafka', 'dbt', 'Snowflake', 'Airflow'],
       hotProjects: ['Real-time Data Pipelines', 'Data Warehousing', 'ETL Automation', 'Analytics Dashboards'],
     },
     {
+      domain: 'Cybersecurity',
+      marketSharePercent: 10,
+      growthPercent: 35,
+      topStacks: ['Zero Trust Architecture', 'SIEM Tools', 'Penetration Testing', 'Burp Suite', 'Wireshark'],
+      hotProjects: ['Cloud Security Audits', 'Threat Detection', 'Compliance Automation', 'SOC Setup'],
+    },
+    {
       domain: 'Blockchain & Web3',
-      demandScore: 62,
+      marketSharePercent: 6,
       growthPercent: 18,
-      icon: '⛓️',
       topStacks: ['Solidity', 'Rust', 'Ethers.js', 'Hardhat', 'Anchor'],
       hotProjects: ['Smart Contracts', 'DeFi Protocols', 'NFT Marketplaces', 'DAO Tooling'],
     },
@@ -109,10 +102,9 @@ You are a senior tech industry analyst. Return ONLY valid JSON (no markdown fenc
 {
   "domains": [
     {
-      "domain": "string — domain name, e.g. AI & Machine Learning",
-      "demandScore": "number 0-100 — relative freelance demand index",
-      "growthPercent": "number — estimated YoY growth percentage",
-      "icon": "string — single emoji representing the domain",
+      "domain": "string — domain name, e.g., AI & Machine Learning",
+      "marketSharePercent": "number — estimated market share percentage (e.g., 28). MUST be a number. The sum of all 6 domains' marketSharePercent values MUST equal exactly 100.0",
+      "growthPercent": "number — estimated YoY growth percentage (e.g., 35). MUST be a number.",
       "topStacks": ["string — 5 most in-demand technologies/frameworks"],
       "hotProjects": ["string — 4 most common freelance project types"]
     }
@@ -121,13 +113,13 @@ You are a senior tech industry analyst. Return ONLY valid JSON (no markdown fenc
 
 Cover exactly these 6 domains:
 1. AI & Machine Learning
-2. Cloud & DevOps
-3. Web & Mobile Development
-4. Cybersecurity
-5. Data Engineering
+2. Web & Mobile Development
+3. Cloud & DevOps
+4. Data Engineering
+5. Cybersecurity
 6. Blockchain & Web3
 
-Base your analysis on current 2025-2026 freelance market trends. Be specific with technology names. Order domains by demandScore descending.`;
+Base your analysis on current 2025-2026 freelance market trends. Be specific with technology names. Order domains by marketSharePercent descending. Ensure the sum of all marketSharePercent values equals exactly 100.`;
 
 async function fetchLiveTrends(): Promise<TrendsPayload> {
   try {
@@ -155,6 +147,18 @@ async function fetchLiveTrends(): Promise<TrendsPayload> {
       throw new Error('Invalid trends structure from OpenAI');
     }
 
+    // Verify and adjust if sum is slightly off due to float rounding
+    let sum = parsed.domains.reduce((acc, d) => acc + d.marketSharePercent, 0);
+    console.log(`[Trends] Initial sum of marketSharePercent: ${sum}%`);
+    
+    // Normalize to ensure it is exactly 100%
+    if (sum !== 100 && parsed.domains.length > 0) {
+      const diff = 100 - sum;
+      parsed.domains[0].marketSharePercent = Number((parsed.domains[0].marketSharePercent + diff).toFixed(2));
+      sum = parsed.domains.reduce((acc, d) => acc + d.marketSharePercent, 0);
+      console.log(`[Trends] Normalized sum of marketSharePercent: ${sum}%`);
+    }
+
     const tokensUsed = completion.usage?.total_tokens ?? 0;
     console.log(`[Trends] ✅ Live trends received (${tokensUsed} tokens, ${parsed.domains.length} domains)`);
 
@@ -179,10 +183,6 @@ async function fetchLiveTrends(): Promise<TrendsPayload> {
 //   1. Check Redis for TRENDS_CACHE_KEY.
 //   2. Cache HIT  → return cached payload immediately (X-Cache: HIT).
 //   3. Cache MISS → fetch live trends from OpenAI, write to Redis (TTL 24h), return.
-//
-// Graceful degradation: if Redis is down, getCached/setCached no-op silently
-// so the endpoint continues to work — just without caching.
-// If OpenAI is down, falls back to curated stub data.
 // ─────────────────────────────────────────────────────────────────────────────
 
 router.get(
@@ -194,7 +194,6 @@ router.get(
     const cached = await getCached<TrendsPayload>(TRENDS_CACHE_KEY);
 
     if (cached) {
-      // Cache HIT — return immediately, no OpenAI call needed.
       res.setHeader('X-Cache', 'HIT');
       return res.json({
         status: 'success',
@@ -210,7 +209,7 @@ router.get(
     // ── 2. Cache MISS — fetch live trends ────────────────────────────────
     const payload = await fetchLiveTrends();
 
-    // ── 3. Populate cache (fire-and-forget; errors are swallowed inside setCached) ──
+    // ── 3. Populate cache (fire-and-forget) ──
     await setCached(TRENDS_CACHE_KEY, payload, TRENDS_CACHE_TTL);
 
     // ── 4. Respond ────────────────────────────────────────────────────────

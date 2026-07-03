@@ -16,14 +16,14 @@ const DOMAIN_COLORS = [
 ]
 
 // ── Custom tooltip for the bar chart ─────────────────────────────────────
-function DemandTooltip({ active, payload, label }: {
+function MarketShareTooltip({ active, payload, label }: {
   active?: boolean; payload?: Array<{ value: number }>; label?: string
 }) {
   if (!active || !payload?.length) return null
   return (
     <div className="glass px-3 py-2 text-sm shadow-xl">
-      <p className="font-semibold text-slate-100">{label}</p>
-      <p className="text-violet-400">Demand Score: {payload[0].value}/100</p>
+      <p className="font-semibold text-slate-100">{label?.replace('\n', ' ')}</p>
+      <p className="text-violet-400">Market Share: {payload[0].value}%</p>
     </div>
   )
 }
@@ -35,36 +35,40 @@ function DomainCard({ domain }: { domain: DomainTrend }) {
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2.5">
-          <span className="text-xl" role="img" aria-label={domain.domain}>
-            {domain.icon}
-          </span>
           <h3 className="text-sm font-bold text-slate-100 leading-tight">
             {domain.domain}
           </h3>
         </div>
-        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-          domain.growthPercent >= 30
-            ? 'bg-emerald-500/15 text-emerald-400'
-            : domain.growthPercent >= 15
-            ? 'bg-amber-500/15 text-amber-400'
-            : 'bg-slate-500/15 text-slate-400'
-        }`}>
-          +{domain.growthPercent}%
-        </span>
+        
+        {/* Growth percentage badge with custom hover tooltip explanation */}
+        <div className="relative group/tooltip">
+          <span className={`text-xs font-bold px-2 py-0.5 rounded-full cursor-help transition-all duration-200 ${
+            domain.growthPercent >= 30
+              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
+              : domain.growthPercent >= 15
+              ? 'bg-amber-500/15 text-amber-400 border border-amber-500/25'
+              : 'bg-slate-500/15 text-slate-400 border border-white/5'
+          }`}>
+            +{domain.growthPercent}%
+          </span>
+          <div className="absolute right-0 bottom-full mb-2 hidden group-hover/tooltip:block z-10 bg-zinc-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 shadow-xl font-medium w-48 text-center animate-fade-in pointer-events-none">
+            Year-over-Year demand growth: <span className="text-emerald-400 font-bold">+{domain.growthPercent}%</span>
+          </div>
+        </div>
       </div>
 
-      {/* Demand bar */}
+      {/* Market Share bar */}
       <div className="mb-4">
         <div className="flex items-center justify-between mb-1">
           <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
-            Demand
+            Market Share
           </span>
-          <span className="text-[10px] text-slate-500 font-mono">{domain.demandScore}/100</span>
+          <span className="text-[10px] text-slate-500 font-mono">{domain.marketSharePercent}%</span>
         </div>
         <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
           <div
             className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all duration-700 ease-out"
-            style={{ width: `${domain.demandScore}%` }}
+            style={{ width: `${domain.marketSharePercent}%` }}
           />
         </div>
       </div>
@@ -169,11 +173,11 @@ export default function Dashboard() {
     }
   }
 
-  // Sort domains by demand score for the chart
+  // Sort domains by market share percentage for the chart
   const chartData = trends?.domains
     ?.slice()
-    .sort((a, b) => b.demandScore - a.demandScore)
-    .map((d) => ({ name: d.domain.replace('&', '&\n'), demandScore: d.demandScore }))
+    .sort((a, b) => b.marketSharePercent - a.marketSharePercent)
+    .map((d) => ({ name: d.domain.replace('&', '&\n'), marketSharePercent: d.marketSharePercent }))
     ?? []
 
   return (
@@ -234,9 +238,9 @@ export default function Dashboard() {
             </div>
           ) : trends ? (
             <>
-              {/* ── Demand Overview Chart ────────────────────────────────── */}
+              {/* ── Market Share Chart ────────────────────────────────────── */}
               <div className="mb-8">
-                <p className="text-xs text-slate-500 mb-4">Domain demand index · scored out of 100</p>
+                <p className="text-xs text-slate-500 mb-4 font-medium">Domain market share · percentage of freelance tech job market</p>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart
                     data={chartData}
@@ -247,6 +251,7 @@ export default function Dashboard() {
                     <XAxis
                       type="number"
                       domain={[0, 100]}
+                      tickFormatter={(val) => `${val}%`}
                       tick={{ fill: '#94a3b8', fontSize: 11, fontFamily: 'Inter' }}
                       axisLine={false}
                       tickLine={false}
@@ -259,8 +264,8 @@ export default function Dashboard() {
                       axisLine={false}
                       tickLine={false}
                     />
-                    <Tooltip content={<DemandTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-                    <Bar dataKey="demandScore" radius={[0, 6, 6, 0]} barSize={20}>
+                    <Tooltip content={<MarketShareTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+                    <Bar dataKey="marketSharePercent" radius={[0, 6, 6, 0]} barSize={20}>
                       {chartData.map((_, i) => (
                         <Cell key={i} fill={DOMAIN_COLORS[i % DOMAIN_COLORS.length]} />
                       ))}
@@ -278,7 +283,7 @@ export default function Dashboard() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                   {trends.domains
                     .slice()
-                    .sort((a, b) => b.demandScore - a.demandScore)
+                    .sort((a, b) => b.marketSharePercent - a.marketSharePercent)
                     .map((domain) => (
                       <DomainCard key={domain.domain} domain={domain} />
                     ))

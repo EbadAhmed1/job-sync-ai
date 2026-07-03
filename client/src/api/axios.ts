@@ -61,9 +61,8 @@ export interface Proposal {
 
 export interface DomainTrend {
   domain: string
-  demandScore: number
+  marketSharePercent: number
   growthPercent: number
-  icon: string
   topStacks: string[]
   hotProjects: string[]
 }
