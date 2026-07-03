@@ -22,7 +22,7 @@ function MarketShareTooltip({ active, payload, label }: {
   if (!active || !payload?.length) return null
   return (
     <div className="glass px-3 py-2 text-sm shadow-xl">
-      <p className="font-semibold text-slate-100">{label?.replace('\n', ' ')}</p>
+      <p className="font-semibold text-slate-100">{label}</p>
       <p className="text-violet-400">Market Share: {payload[0].value}%</p>
     </div>
   )
@@ -177,7 +177,7 @@ export default function Dashboard() {
   const chartData = trends?.domains
     ?.slice()
     .sort((a, b) => b.marketSharePercent - a.marketSharePercent)
-    .map((d) => ({ name: d.domain.replace('&', '&\n'), marketSharePercent: d.marketSharePercent }))
+    .map((d) => ({ name: d.domain, marketSharePercent: d.marketSharePercent }))
     ?? []
 
   return (
@@ -259,7 +259,7 @@ export default function Dashboard() {
                     <YAxis
                       type="category"
                       dataKey="name"
-                      width={140}
+                      width={160}
                       tick={{ fill: '#cbd5e1', fontSize: 11, fontFamily: 'Inter' }}
                       axisLine={false}
                       tickLine={false}
