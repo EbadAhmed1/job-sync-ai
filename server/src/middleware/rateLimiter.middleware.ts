@@ -50,6 +50,7 @@ const buildStore = (): Options['store'] | undefined => {
 export const proposalRateLimiter = rateLimit({
   windowMs: WINDOW_MS,
   max: MAX_HITS,
+  validate: { keyGeneratorIpFallback: false },
 
   // ── Key: rate-limit per authenticated userId, not per IP ──────────────────
   keyGenerator: (req: Request): string => {
@@ -103,6 +104,7 @@ export const proposalRateLimiter = rateLimit({
 export const apiRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15-minute window
   max: 200,                  // 200 requests per window per IP
+  validate: { keyGeneratorIpFallback: false },
 
   store: buildStore(),
 
