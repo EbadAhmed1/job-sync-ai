@@ -3,7 +3,7 @@ import {
   Wand2, Send, Copy, CheckCheck, AlertCircle, Clock,
   RefreshCcw, ChevronDown, ChevronUp, User as UserIcon, Save, CheckCircle2,
 } from 'lucide-react'
-import { proposalApi, userApi } from '../api/axios'
+import { proposalApi, userApi, type Proposal } from '../api/axios'
 
 type GenStatus = 'idle' | 'submitting' | 'polling' | 'completed' | 'failed'
 
@@ -42,6 +42,17 @@ export default function Generator() {
   // ── Refinement state ──────────────────────────────────────────────────────
   const [refinementInput, setRefinementInput] = useState('')
 
+  // ── Fit check state ───────────────────────────────────────────────────────
+  const [fitAnalysis, setFitAnalysis] = useState<{
+    score: number;
+    matchingSkills: string[];
+    missingSkills: string[];
+    reasoning: string;
+  } | null>(null)
+  const [fitChecking, setFitChecking] = useState(false)
+  const [showWarningGate, setShowWarningGate] = useState(false)
+  const [completedProposal, setCompletedProposal] = useState<Proposal | null>(null)
+
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // ── Fetch portfolio context on mount ───────────────────────────────────────
@@ -76,6 +87,7 @@ export default function Generator() {
 
         if (proposal.status === 'COMPLETED') {
           setGeneratedText(proposal.generatedText ?? '')
+          setCompletedProposal(proposal)
           setGenStatus('completed')
           if (intervalRef.current) clearInterval(intervalRef.current)
         } else if (proposal.status === 'FAILED') {
@@ -112,6 +124,35 @@ export default function Generator() {
     }
   }
 
+  // ── Trigger Proposal Generation ───────────────────────────────────────────
+  const triggerProposalGeneration = async (fitDataOverride?: typeof fitAnalysis) => {
+    setError(null)
+    setGenStatus('submitting')
+    setShowWarningGate(false)
+    
+    const activeFit = fitDataOverride || fitAnalysis
+
+    try {
+      const res = await proposalApi.generate({
+        jobTitle:       jobTitle.trim() || undefined,
+        jobDescription: jobDescription.trim(),
+        jobSource:      jobSource.trim() || undefined,
+        fitScore:       activeFit?.score,
+        matchingSkills: activeFit?.matchingSkills,
+        missingSkills:  activeFit?.missingSkills,
+        fitReasoning:   activeFit?.reasoning,
+      })
+      setProposalId(res.data.data.proposalId)
+      setGenStatus('polling')
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Submission failed. Make sure the API server is running.'
+      setError(msg)
+      setGenStatus('failed')
+    }
+  }
+
   // ── Submit handler ────────────────────────────────────────────────────────
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -119,14 +160,18 @@ export default function Generator() {
     setGeneratedText(null)
     setProposalId(null)
     setPollCount(0)
-    setGenStatus('submitting')
+    setFitAnalysis(null)
+    setShowWarningGate(false)
+    setCompletedProposal(null)
 
+    // 1. Validate portfolio is not empty
+    if (!portfolio.trim()) {
+      setError('Your portfolio is empty. Please enter your portfolio context first.')
+      return
+    }
+    
+    setFitChecking(true)
     try {
-      // 1. Validate portfolio is not empty
-      if (!portfolio.trim()) {
-        throw new Error('Your portfolio is empty. Please enter your portfolio context first.')
-      }
-      
       // Auto-save portfolio
       setPortfolioSaving(true)
       await userApi.updateProfile(portfolio)
@@ -134,22 +179,30 @@ export default function Generator() {
       setPortfolioSaving(false)
       setTimeout(() => setPortfolioSaveStatus('idle'), 3000)
 
-      // 2. Generate proposal
-      const res = await proposalApi.generate({
-        jobTitle:       jobTitle.trim() || undefined,
+      // 2. Perform Fit Analysis
+      const fitRes = await proposalApi.analyzeFit({
+        jobTitle: jobTitle.trim(),
         jobDescription: jobDescription.trim(),
-        jobSource:      jobSource.trim() || undefined,
       })
-      setProposalId(res.data.data.proposalId)
-      setGenStatus('polling')
+      const fitData = fitRes.data.data
+      setFitAnalysis(fitData)
+      setFitChecking(false)
+
+      // 3. Gatekeeper Check
+      if (fitData.score < 60) {
+        setShowWarningGate(true)
+      } else {
+        // Proceed automatically
+        await triggerProposalGeneration(fitData)
+      }
     } catch (err: unknown) {
+      setFitChecking(false)
       setPortfolioSaving(false)
       const msg =
         (err as { message?: string })?.message ??
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'Submission failed. Make sure the API server is running.'
+        'Analysis failed. Make sure the API server is running.'
       setError(msg)
-      setGenStatus('failed')
     }
   }
 
@@ -185,7 +238,7 @@ export default function Generator() {
     setTimeout(() => setCopied(false), 2500)
   }
 
-  const isRunning = genStatus === 'submitting' || genStatus === 'polling'
+  const isRunning = genStatus === 'submitting' || genStatus === 'polling' || fitChecking
   const charCount = jobDescription.length
 
   return (
@@ -385,7 +438,7 @@ export default function Generator() {
 
             {/* Content area */}
             <div className="flex-1 flex flex-col">
-              {genStatus === 'idle' && (
+              {genStatus === 'idle' && !fitChecking && !showWarningGate && (
                 <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 py-8">
                   <div className="w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center">
                     <Wand2 className="w-8 h-8 text-violet-400/50" />
@@ -407,10 +460,16 @@ export default function Generator() {
                   </div>
                   <div className="text-center">
                     <p className="text-slate-200 font-medium text-sm">
-                      {genStatus === 'submitting' ? 'Queuing your request…' : 'AI is crafting your proposal…'}
+                      {fitChecking
+                        ? 'Analyzing fit with your portfolio…'
+                        : genStatus === 'submitting'
+                        ? 'Queuing your request…'
+                        : 'AI is crafting your proposal…'}
                     </p>
                     <p className="text-slate-500 text-xs mt-1">
-                      {genStatus === 'polling'
+                      {fitChecking
+                        ? 'Comparing skills and overlap…'
+                        : genStatus === 'polling'
                         ? `Checking every ${POLL_INTERVAL_MS / 1000}s · attempt ${pollCount}`
                         : 'Almost there…'}
                     </p>
@@ -424,6 +483,88 @@ export default function Generator() {
                         style={{ animationDelay: `${i * 0.15}s` }}
                       />
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {showWarningGate && fitAnalysis && (
+                <div className="flex-1 flex flex-col gap-5 justify-center py-4 animate-fade-in text-left">
+                  <div className="flex items-center gap-3 text-amber-400 bg-amber-500/10 px-4 py-3.5 rounded-xl border border-amber-500/20 text-sm">
+                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                    <div>
+                      <h4 className="font-bold text-slate-100">Low Compatibility Warning</h4>
+                      <p className="text-slate-400 text-xs mt-0.5">
+                        This job has a fit score of <strong className="text-amber-400">{fitAnalysis.score}%</strong>. It may be a low-probability win.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* Skills Breakdown */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="glass p-3 border border-emerald-500/10">
+                        <p className="text-[10px] uppercase tracking-wider text-emerald-400 font-bold mb-1.5">
+                          Matching Skills
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {fitAnalysis.matchingSkills.length > 0 ? (
+                            fitAnalysis.matchingSkills.map((s) => (
+                              <span key={s} className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-medium text-emerald-300">
+                                {s}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-slate-500">None found</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="glass p-3 border border-red-500/10">
+                        <p className="text-[10px] uppercase tracking-wider text-red-400 font-bold mb-1.5">
+                          Missing Skills
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {fitAnalysis.missingSkills.length > 0 ? (
+                            fitAnalysis.missingSkills.map((s) => (
+                              <span key={s} className="px-2 py-0.5 rounded bg-red-500/10 border border-red-500/20 text-[10px] font-medium text-red-300">
+                                {s}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-slate-500">None identified</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Reasoning */}
+                    {fitAnalysis.reasoning && (
+                      <div className="glass p-4 text-xs leading-relaxed text-slate-300 bg-white/5 border border-white/5 rounded-xl">
+                        <p className="font-semibold text-slate-200 mb-1">Fit Analysis Explanation:</p>
+                        {fitAnalysis.reasoning}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-3 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => triggerProposalGeneration()}
+                      className="btn-primary flex-1 justify-center py-2.5 text-sm"
+                    >
+                      Proceed Anyway
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowWarningGate(false)
+                        setFitAnalysis(null)
+                        setGenStatus('idle')
+                      }}
+                      className="btn-ghost flex-1 justify-center py-2.5 text-sm border border-white/10"
+                    >
+                      Cancel
+                    </button>
                   </div>
                 </div>
               )}
@@ -445,7 +586,43 @@ export default function Generator() {
               )}
 
               {genStatus === 'completed' && generatedText && (
-                <div className="flex-1 flex flex-col gap-3 animate-fade-in">
+                <div className="flex-1 flex flex-col gap-3 animate-fade-in text-left">
+                  {/* Fit Check Summary Block */}
+                  {completedProposal && completedProposal.fitScore !== null && completedProposal.fitScore !== undefined && (
+                    <div className="glass p-4 border border-violet-500/10 mb-1 flex items-center justify-between gap-4 flex-wrap bg-violet-950/10 rounded-xl">
+                      <div className="flex-1 min-w-[200px]">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2.5 h-2.5 rounded-full ${
+                            completedProposal.fitScore >= 75
+                              ? 'bg-emerald-400'
+                              : completedProposal.fitScore >= 55
+                              ? 'bg-amber-400'
+                              : 'bg-red-400'
+                          }`} />
+                          <h4 className="font-bold text-xs text-slate-100">
+                            Fit Check Match: <span className="gradient-text">{completedProposal.fitScore}%</span>
+                          </h4>
+                        </div>
+                        {completedProposal.fitReasoning && (
+                          <p className="text-[11px] text-slate-400 mt-1 leading-normal">
+                            {completedProposal.fitReasoning}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Matching Skills */}
+                      {completedProposal.matchingSkills && completedProposal.matchingSkills.length > 0 && (
+                        <div className="flex flex-wrap gap-1 max-w-[250px]">
+                          {completedProposal.matchingSkills.map((s) => (
+                            <span key={s} className="px-1.5 py-0.5 rounded bg-violet-500/10 border border-violet-500/10 text-[9px] font-medium text-violet-300">
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex-1 relative">
                     <textarea
                       id="generated-proposal-output"

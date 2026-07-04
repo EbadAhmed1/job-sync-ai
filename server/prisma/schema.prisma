@@ -58,6 +58,12 @@ model Proposal {
   generatedText String?        @db.Text
   createdAt     DateTime       @default(now())
 
+  // Fit score fields
+  fitScore          Int?
+  matchingSkills    String[]
+  missingSkills     String[]
+  fitReasoning      String?        @db.Text
+
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   jobPosting    JobPosting     @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
 

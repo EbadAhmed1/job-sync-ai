@@ -50,6 +50,10 @@ export interface Proposal {
   status: 'PENDING' | 'COMPLETED' | 'FAILED'
   generatedText: string | null
   createdAt: string
+  fitScore?: number | null
+  matchingSkills?: string[]
+  missingSkills?: string[]
+  fitReasoning?: string | null
   jobPosting: {
     title: string
     description: string
@@ -96,7 +100,15 @@ export const jobApi = {
 
 // Proposals
 export const proposalApi = {
-  generate: (payload: { jobTitle?: string; jobDescription: string; jobSource?: string }) =>
+  generate: (payload: {
+    jobTitle?: string
+    jobDescription: string
+    jobSource?: string
+    fitScore?: number
+    matchingSkills?: string[]
+    missingSkills?: string[]
+    fitReasoning?: string
+  }) =>
     api.post<{ data: { proposalId: string; status: string } }>('/proposals/generate', payload),
   getById: (id: string) =>
     api.get<{ data: { proposal: Proposal } }>(`/proposals/${id}`),
@@ -104,4 +116,6 @@ export const proposalApi = {
     api.get<{ data: { proposals: Proposal[]; total: number } }>('/proposals'),
   refine: (id: string, refinementInstruction: string) =>
     api.post<{ data: { proposalId: string; status: string } }>(`/proposals/${id}/refine`, { refinementInstruction }),
+  analyzeFit: (payload: { jobTitle?: string; jobDescription: string }) =>
+    api.post<{ data: { score: number; matchingSkills: string[]; missingSkills: string[]; reasoning: string } }>('/proposals/analyze-fit', payload),
 }

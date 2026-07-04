@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import OpenAI from 'openai';
 import { prisma } from '../lib/prisma';
 import { authenticate } from '../middleware/auth.middleware';
 import { proposalRateLimiter } from '../middleware/rateLimiter.middleware';
@@ -7,6 +8,9 @@ import { AppError } from '../utils/AppError';
 import { publishProposalJob } from '../utils/publisher';
 
 const router = Router();
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 // All proposal routes require authentication
 router.use(authenticate);
@@ -34,10 +38,18 @@ router.post(
       jobTitle,
       jobDescription,
       jobSource,
+      fitScore,
+      matchingSkills,
+      missingSkills,
+      fitReasoning,
     } = req.body as {
       jobTitle?:       string;
       jobDescription?: string;
       jobSource?:      string;
+      fitScore?:       number;
+      matchingSkills?: string[];
+      missingSkills?:  string[];
+      fitReasoning?:   string;
     };
 
     // ── Validation ────────────────────────────────────────────────────────────
@@ -93,6 +105,10 @@ router.post(
         userId,
         jobPostingId: jobPosting.id,
         status:       'PENDING',
+        fitScore:     fitScore !== undefined ? Number(fitScore) : null,
+        matchingSkills: Array.isArray(matchingSkills) ? matchingSkills : [],
+        missingSkills:  Array.isArray(missingSkills) ? missingSkills : [],
+        fitReasoning:   fitReasoning || null,
       },
     });
 
@@ -199,6 +215,110 @@ router.get(
       status: 'success',
       data:   { proposal },
     });
+  })
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/proposals/analyze-fit
+//
+// Evaluate skills between job posting and user portfolio using OpenAI
+// ─────────────────────────────────────────────────────────────────────────────
+
+const FIT_ANALYSIS_SYSTEM_PROMPT = `\
+You are an expert recruiter and technical screening assistant.
+Evaluate the freelancer's portfolio against the client's job posting to determine how well their skills match.
+Calculate a fit score from 0 to 100 based on exact matches, relative matches, and missing critical skills.
+
+You MUST respond with a valid JSON object containing exactly:
+{
+  "score": number (0 to 100),
+  "matchingSkills": string[],
+  "missingSkills": string[],
+  "reasoning": string (a concise 1-2 sentence explanation of the score)
+}
+Do NOT include any extra formatting, markdown blocks, or text. Only output the JSON string.`;
+
+router.post(
+  '/analyze-fit',
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.userId!;
+    const { jobTitle, jobDescription } = req.body as {
+      jobTitle?: string;
+      jobDescription?: string;
+    };
+
+    if (!jobDescription || typeof jobDescription !== 'string') {
+      throw new AppError(400, 'jobDescription is required');
+    }
+
+    const trimmedDescription = jobDescription.trim();
+    if (trimmedDescription.length < 50) {
+      throw new AppError(400, 'jobDescription must be at least 50 characters long');
+    }
+
+    // Fetch user's portfolio context
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { portfolioText: true },
+    });
+
+    if (!user) {
+      throw new AppError(404, 'User account not found');
+    }
+
+    if (!user.portfolioText || user.portfolioText.trim().length === 0) {
+      throw new AppError(
+        422,
+        'Your portfolio is empty. Please configure your portfolio context before analyzing fit.'
+      );
+    }
+
+    try {
+      // Call OpenAI to match skills
+      const prompt = `\
+CLIENT'S JOB TITLE: ${jobTitle || 'Untitled Posting'}
+CLIENT'S JOB DESCRIPTION:
+${trimmedDescription}
+
+---
+
+FREELANCER'S PORTFOLIO:
+${user.portfolioText}
+
+---
+
+Analyze the fit now.`;
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: FIT_ANALYSIS_SYSTEM_PROMPT },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.2, // Low temperature for deterministic analysis
+        response_format: { type: 'json_object' }
+      });
+
+      const responseText = completion.choices[0]?.message?.content?.trim();
+      if (!responseText) {
+        throw new Error('OpenAI returned an empty response');
+      }
+
+      const fitData = JSON.parse(responseText) as {
+        score: number;
+        matchingSkills: string[];
+        missingSkills: string[];
+        reasoning: string;
+      };
+
+      res.json({
+        status: 'success',
+        data: fitData
+      });
+    } catch (err: unknown) {
+      console.error('[Fit Analysis Error]:', err);
+      throw new AppError(502, 'Failed to complete fit analysis via AI services. Please try again.');
+    }
   })
 );
 
