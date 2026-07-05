@@ -14,10 +14,11 @@ import { apiRateLimiter } from './middleware/rateLimiter.middleware';
 // ── Routes ──────────────────────────────────────────────────────────────────
 import authRoutes     from './routes/auth.routes';
 import userRoutes     from './routes/user.routes';
+import cvRoutes       from './routes/cv.routes';
 import jobRoutes      from './routes/job.routes';
 import proposalRoutes from './routes/proposal.routes';
 import { closeRabbitMQ } from './config/rabbitmq';
-import { startWorker } from './worker';
+import { startWorker, startJobIngestionWorker } from './worker';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // App setup
@@ -34,8 +35,8 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public system routes
@@ -66,6 +67,7 @@ app.use('/api', apiRateLimiter);
 
 app.use('/api/auth',      authRoutes);
 app.use('/api/users',     userRoutes);
+app.use('/api/cv',        cvRoutes);
 app.use('/api/jobs',      jobRoutes);
 app.use('/api/proposals', proposalRoutes);
 
@@ -121,11 +123,12 @@ async function bootstrap(): Promise<void> {
     await prisma.$connect();
     console.log('✅ Database connected successfully');
 
-    // Run the background worker inside the same process (useful for single-container free-tier hostings like Render)
+    // Run the background workers inside the same process (useful for single-container free-tier hostings like Render)
     if (process.env.RUN_WORKER === 'true') {
       startWorker(true).catch((err: unknown) => {
-        console.error('[Worker] Failed to start inline worker:', err);
+        console.error('[Worker] Failed to start inline proposal worker:', err);
       });
+      startJobIngestionWorker();
     }
 
     app.listen(PORT, () => {

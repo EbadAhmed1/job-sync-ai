@@ -26,13 +26,16 @@ enum ProposalStatus {
 // ─────────────────────────────────────────────
 
 model User {
-  id            String     @id @default(uuid())
-  email         String     @unique
-  passwordHash  String
-  portfolioText String?    @db.Text
-  createdAt     DateTime   @default(now())
+  id              String     @id @default(uuid())
+  email           String     @unique
+  passwordHash    String
+  portfolioText   String?    @db.Text
+  // Job search fields
+  extractedSkills String[]   @default([])
+  jobPreference   String?    @default("both") // "remote_only" | "onsite_only" | "both"
+  createdAt       DateTime   @default(now())
 
-  proposals     Proposal[]
+  proposals       Proposal[]
 
   @@map("users")
 }
@@ -68,4 +71,31 @@ model Proposal {
   jobPosting    JobPosting     @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
 
   @@map("proposals")
+}
+
+// ─────────────────────────────────────────────
+// Job Search Models
+// ─────────────────────────────────────────────
+
+model Job {
+  id             String    @id @default(uuid())
+  externalId     String    @unique                // Adzuna ID or RSS hash — prevents duplicates
+  title          String
+  company        String
+  location       String
+  locationType   String                           // "remote" | "onsite" | "hybrid"
+  description    String    @db.Text
+  salaryMin      Int?
+  salaryMax      Int?
+  currency       String?
+  applyUrl       String
+  source         String                           // "adzuna" | "remotive" | "remoteok"
+  requiredSkills String[]  @default([])
+  postedAt       DateTime
+  fetchedAt      DateTime  @default(now())
+  expiresAt      DateTime?
+
+  @@map("jobs")
+  @@index([locationType])
+  @@index([postedAt])
 }

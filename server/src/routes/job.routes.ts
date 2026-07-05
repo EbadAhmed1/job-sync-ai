@@ -1,7 +1,9 @@
 import { Router, Request, Response } from 'express';
 import OpenAI from 'openai';
+import { prisma } from '../lib/prisma';
 import { authenticate } from '../middleware/auth.middleware';
 import { asyncHandler } from '../utils/asyncHandler';
+import { AppError } from '../utils/AppError';
 import { getCached, setCached } from '../config/redis';
 
 const router = Router();
@@ -224,6 +226,223 @@ router.get(
       },
       data: payload,
     });
+  })
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/jobs/search
+//
+// Returns ranked job matches for the authenticated user.
+// Ranking uses keyword overlap between user.extractedSkills and job.requiredSkills.
+// Caches per user in Redis for 30 minutes.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SEARCH_CACHE_TTL = 30 * 60; // 30 minutes
+
+router.get(
+  '/search',
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.userId!;
+    const preference = (req.query['preference'] as string) || 'both';
+
+    // ── 1. Cache look-up ──────────────────────────────────────────────────
+    const cacheKey = `job_search:${userId}:${preference}`;
+    const cached = await getCached<object>(cacheKey);
+    if (cached) {
+      res.setHeader('X-Cache', 'HIT');
+      return res.json({ status: 'success', meta: { cacheStatus: 'hit' }, data: cached });
+    }
+
+    // ── 2. Fetch user skills ───────────────────────────────────────────────
+    const user = await prisma.user.findUnique({
+      where:  { id: userId },
+      select: { extractedSkills: true, jobPreference: true },
+    });
+
+    if (!user) throw new AppError(404, 'User not found');
+
+    const userSkills = user.extractedSkills.map((s) => s.toLowerCase());
+    const effectivePreference = preference !== 'both' ? preference : (user.jobPreference ?? 'both');
+
+    if (userSkills.length === 0) {
+      return res.json({
+        status: 'success',
+        data: { jobs: [], total: 0, message: 'Upload your CV first to see personalised job matches.' },
+      });
+    }
+
+    // ── 3. Build location filter ───────────────────────────────────────────
+    const locationFilter: Record<string, string | object> = {};
+    if (effectivePreference === 'remote_only') {
+      locationFilter['locationType'] = 'remote';
+    } else if (effectivePreference === 'onsite_only') {
+      locationFilter['locationType'] = 'onsite';
+    }
+    // 'both' — no filter
+
+    // ── 4. Fetch recent jobs from DB ───────────────────────────────────────
+    const jobs = await prisma.job.findMany({
+      where:   {
+        ...locationFilter,
+        postedAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+      },
+      orderBy: { postedAt: 'desc' },
+      take:    200, // fetch 200, then rank and return top 30
+      select: {
+        id:             true,
+        title:          true,
+        company:        true,
+        location:       true,
+        locationType:   true,
+        salaryMin:      true,
+        salaryMax:      true,
+        currency:       true,
+        applyUrl:       true,
+        source:         true,
+        requiredSkills: true,
+        postedAt:       true,
+        description:    true,
+      },
+    });
+
+    // ── 5. Compute keyword match score ────────────────────────────────────
+    const ranked = jobs
+      .map((job) => {
+        const jobSkills = job.requiredSkills.map((s) => s.toLowerCase());
+        const matches   = userSkills.filter((s) => jobSkills.some((js) => js.includes(s) || s.includes(js)));
+        const matchPercent = jobSkills.length > 0
+          ? Math.round((matches.length / jobSkills.length) * 100)
+          : 0;
+        return { ...job, matchPercent, matchCount: matches.length };
+      })
+      .filter((job) => job.matchPercent > 0 || job.requiredSkills.length === 0)
+      .sort((a, b) => b.matchPercent - a.matchPercent || b.matchCount - a.matchCount)
+      .slice(0, 30)
+      .map(({ matchCount: _mc, description: _desc, ...job }) => job); // strip internal fields + description from list
+
+    // ── 6. Cache and respond ───────────────────────────────────────────────
+    const responseData = { jobs: ranked, total: ranked.length };
+    await setCached(cacheKey, responseData, SEARCH_CACHE_TTL);
+
+    res.setHeader('X-Cache', 'MISS');
+    res.json({ status: 'success', meta: { cacheStatus: 'miss' }, data: responseData });
+  })
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/jobs/:id
+// Returns a single job by ID.
+// ─────────────────────────────────────────────────────────────────────────────
+
+router.get(
+  '/:id',
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params as { id: string };
+
+    const job = await prisma.job.findUnique({ where: { id } });
+    if (!job) throw new AppError(404, 'Job not found');
+
+    res.json({ status: 'success', data: { job } });
+  })
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/jobs/:id/fit
+//
+// Runs a Fit-Gap analysis for a specific job against the authenticated user's CV.
+// Reuses the same FIT_ANALYSIS_SYSTEM_PROMPT logic as /api/proposals/analyze-fit.
+// Caches per userId:jobId in Redis for 1 hour.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const FIT_CACHE_TTL = 60 * 60; // 1 hour
+
+const JOB_FIT_SYSTEM_PROMPT = `\
+You are an expert recruiter and technical screening assistant.
+Evaluate the candidate's profile against the job description to determine how well their skills match.
+Calculate a fit score from 0 to 100 based on exact matches, related skills, and missing critical requirements.
+
+You MUST respond with a valid JSON object containing exactly:
+{
+  "score": number (0 to 100),
+  "matchingSkills": string[],
+  "missingSkills": string[],
+  "reasoning": string (a concise 1-2 sentence explanation of the score and key gaps)
+}
+Do NOT include any extra formatting, markdown blocks, or text. Only output the JSON string.`;
+
+router.get(
+  '/:id/fit',
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.userId!;
+    const { id }  = req.params as { id: string };
+
+    // ── 1. Cache check ────────────────────────────────────────────────────
+    const cacheKey = `job_fit:${userId}:${id}`;
+    const cached   = await getCached<object>(cacheKey);
+    if (cached) {
+      res.setHeader('X-Cache', 'HIT');
+      return res.json({ status: 'success', meta: { cacheStatus: 'hit' }, data: cached });
+    }
+
+    // ── 2. Fetch job + user portfolio ─────────────────────────────────────
+    const [job, user] = await Promise.all([
+      prisma.job.findUnique({ where: { id } }),
+      prisma.user.findUnique({ where: { id: userId }, select: { portfolioText: true } }),
+    ]);
+
+    if (!job)  throw new AppError(404, 'Job not found');
+    if (!user) throw new AppError(404, 'User not found');
+
+    if (!user.portfolioText?.trim()) {
+      throw new AppError(
+        422,
+        'Your portfolio is empty. Upload your CV first to get a Fit-Gap report.'
+      );
+    }
+
+    // ── 3. Call OpenAI ────────────────────────────────────────────────────
+    const prompt = `\
+JOB TITLE: ${job.title} at ${job.company}
+JOB DESCRIPTION:
+${job.description.substring(0, 6000)}
+
+---
+
+CANDIDATE PROFILE:
+${user.portfolioText.substring(0, 4000)}
+
+---
+
+Analyze the fit now.`;
+
+    const completion = await openai.chat.completions.create({
+      model:           'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: JOB_FIT_SYSTEM_PROMPT },
+        { role: 'user',   content: prompt },
+      ],
+      temperature:     0.2,
+      response_format: { type: 'json_object' },
+    });
+
+    const raw = completion.choices[0]?.message?.content?.trim();
+    if (!raw) throw new AppError(502, 'AI service returned an empty response. Please try again.');
+
+    const fitData = JSON.parse(raw) as {
+      score:          number;
+      matchingSkills: string[];
+      missingSkills:  string[];
+      reasoning:      string;
+    };
+
+    // ── 4. Cache and respond ───────────────────────────────────────────────
+    await setCached(cacheKey, fitData, FIT_CACHE_TTL);
+
+    res.setHeader('X-Cache', 'MISS');
+    res.json({ status: 'success', meta: { cacheStatus: 'miss' }, data: fitData });
   })
 );
 

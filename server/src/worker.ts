@@ -378,6 +378,7 @@ async function shutdown(signal: string): Promise<void> {
 // Entry point — only runs when executed directly (not when imported)
 // ─────────────────────────────────────────────────────────────────────────────
 
+
 if (require.main === module) {
   process.on('SIGINT',  () => void shutdown('SIGINT'));
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
@@ -392,3 +393,34 @@ if (require.main === module) {
     process.exit(1);
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Job Ingestion Worker
+//
+// Runs runJobIngestion() immediately on startup, then every 4 hours.
+// Designed to run inline alongside the Express server (RUN_WORKER=true).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const INGESTION_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
+
+export function startJobIngestionWorker(): void {
+  // Dynamically import to avoid loading the service at module parse time
+  const { runJobIngestion } = require('./services/jobIngestion.service') as {
+    runJobIngestion: () => Promise<void>;
+  };
+
+  const run = () => {
+    runJobIngestion().catch((err: unknown) => {
+      console.error('[Ingestion Worker] Unexpected error:', (err as Error).message);
+    });
+  };
+
+  // Run immediately on startup
+  run();
+
+  // Then repeat every 4 hours
+  setInterval(run, INGESTION_INTERVAL_MS);
+
+  console.log(`✅ Job ingestion worker started (interval: every ${INGESTION_INTERVAL_MS / 3600000}h)`);
+}
+
