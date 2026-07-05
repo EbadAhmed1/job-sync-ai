@@ -249,8 +249,8 @@ router.get(
 
     // ── 1. Cache look-up ──────────────────────────────────────────────────
     const cacheKey = skillsParam
-      ? `job_search:${userId}:${preference}:skills:${skillsParam}`
-      : `job_search:${userId}:${preference}`;
+      ? `job_search_v2:${userId}:${preference}:skills:${skillsParam}`
+      : `job_search_v2:${userId}:${preference}`;
 
     const cached = await getCached<object>(cacheKey);
     if (cached) {
