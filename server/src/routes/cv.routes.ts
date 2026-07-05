@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require('pdf-parse') as (buffer: Buffer) => Promise<{ text: string; numpages: number }>;
+const pdfParseModule = require('pdf-parse');
 import mammoth from 'mammoth';
 import OpenAI from 'openai';
 import { prisma } from '../lib/prisma';
@@ -73,8 +73,22 @@ async function extractTextFromBuffer(
   mimetype: string
 ): Promise<string> {
   if (mimetype === 'application/pdf') {
-    const data = await pdfParse(buffer);
-    const text = data.text.trim();
+    let text = '';
+
+    if (typeof pdfParseModule === 'function') {
+      const data = await pdfParseModule(buffer);
+      text = (data.text || '').trim();
+    } else if (pdfParseModule && typeof pdfParseModule.PDFParse === 'function') {
+      const parser = new pdfParseModule.PDFParse({ data: buffer });
+      const result = await parser.getText();
+      text = (result.text || '').trim();
+    } else if (pdfParseModule && typeof pdfParseModule.default === 'function') {
+      const data = await pdfParseModule.default(buffer);
+      text = (data.text || '').trim();
+    } else {
+      throw new AppError(500, 'PDF parser configuration error. Could not parse document.');
+    }
+
     if (!text || text.length < 50) {
       throw new AppError(
         422,
