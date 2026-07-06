@@ -33,6 +33,10 @@ const ADZUNA_APP_ID  = process.env.ADZUNA_APP_ID;
 const ADZUNA_APP_KEY = process.env.ADZUNA_APP_KEY;
 const JOB_EXPIRY_DAYS = 30;
 
+const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
+const RAPIDAPI_INDEED_HOST = process.env.RAPIDAPI_INDEED_HOST;
+const RAPIDAPI_LINKEDIN_HOST = process.env.RAPIDAPI_LINKEDIN_HOST;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
@@ -281,6 +285,191 @@ async function fetchRemoteOKJobs(): Promise<NormalisedJob[]> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Utility: mapper for RapidAPI Indeed/LinkedIn responses
+// ─────────────────────────────────────────────────────────────────────────────
+
+function mapToNormalisedJob(item: any, source: 'indeed' | 'linkedin'): NormalisedJob | null {
+  const externalId = item.id || item.job_id || item.job_key || item.externalId || item.jobId;
+  const title = item.title || item.job_title || item.position || item.jobTitle;
+  if (!externalId || !title) return null;
+
+  const company = item.company || item.company_name || item.companyName || 'Unknown Company';
+  const location = item.location || item.job_location || 'Unknown';
+  const description = item.description || item.job_description || item.summary || '';
+  const applyUrl = item.applyUrl || item.apply_url || item.job_url || item.url || item.link || '';
+  
+  let postedAt = new Date();
+  const dateStr = item.postDate || item.post_date || item.posted_at || item.pub_date || item.date || item.created || item.pub_date_start_time;
+  if (dateStr) {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      postedAt = d;
+    }
+  }
+
+  // Salary min/max parsing
+  let salaryMin = item.salary_min || item.salaryMin || null;
+  let salaryMax = item.salary_max || item.salaryMax || null;
+  if (typeof item.salary === 'number') {
+    salaryMin = item.salary;
+    salaryMax = item.salary;
+  } else if (typeof item.salary === 'string') {
+    const nums = item.salary.match(/\d+/g);
+    if (nums && nums.length >= 2) {
+      salaryMin = parseInt(nums[0], 10);
+      salaryMax = parseInt(nums[1], 10);
+    } else if (nums && nums.length === 1) {
+      salaryMin = parseInt(nums[0], 10);
+    }
+  }
+
+  return {
+    externalId: `${source}_${externalId}`,
+    title,
+    company,
+    location,
+    locationType: inferLocationType(title, description, location),
+    description: description.replace(/<[^>]*>/g, ''), // Strip HTML tags
+    salaryMin: salaryMin ? Number(salaryMin) : null,
+    salaryMax: salaryMax ? Number(salaryMax) : null,
+    currency: source === 'indeed' ? 'USD' : null,
+    applyUrl,
+    source,
+    postedAt,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Source 4: Indeed Scraper API (via RapidAPI)
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function fetchIndeedJobs(): Promise<NormalisedJob[]> {
+  if (!RAPIDAPI_KEY || !RAPIDAPI_INDEED_HOST) {
+    console.warn('[Ingestion] RapidAPI Indeed credentials not set — skipping Indeed source');
+    return [];
+  }
+
+  const jobs: NormalisedJob[] = [];
+  const keywords = ['software developer', 'data engineer'];
+
+  for (const keyword of keywords) {
+    try {
+      // Typically Indeed Scrapers use GET/POST endpoints. Let's try both /search and /jobs paths
+      let res = await fetch(`https://${RAPIDAPI_INDEED_HOST}/search?query=${encodeURIComponent(keyword)}&location=United%20States&limit=20`, {
+        method: 'GET',
+        headers: {
+          'x-rapidapi-key': RAPIDAPI_KEY,
+          'x-rapidapi-host': RAPIDAPI_INDEED_HOST,
+        },
+      });
+
+      if (!res.ok) {
+        // Fallback to /jobs path if /search returns error/404
+        res = await fetch(`https://${RAPIDAPI_INDEED_HOST}/jobs?query=${encodeURIComponent(keyword)}&location=United%20States&limit=20`, {
+          method: 'GET',
+          headers: {
+            'x-rapidapi-key': RAPIDAPI_KEY,
+            'x-rapidapi-host': RAPIDAPI_INDEED_HOST,
+          },
+        });
+      }
+
+      if (!res.ok) {
+        console.warn(`[Ingestion] Indeed RapidAPI keyword "${keyword}" failed (HTTP ${res.status})`);
+        continue;
+      }
+
+      const data = await res.json() as any;
+      let items: any[] = [];
+      if (Array.isArray(data)) {
+        items = data;
+      } else if (data && typeof data === 'object') {
+        items = data.hits || data.results || data.jobs || data.data || [];
+      }
+
+      for (const item of items) {
+        const normalised = mapToNormalisedJob(item, 'indeed');
+        if (normalised) {
+          jobs.push(normalised);
+        }
+      }
+
+      console.log(`[Ingestion] Indeed: fetched ${items.length} jobs for keyword "${keyword}"`);
+      await new Promise((r) => setTimeout(r, 500));
+    } catch (err) {
+      console.error(`[Ingestion] Indeed error for keyword "${keyword}":`, (err as Error).message);
+    }
+  }
+
+  return jobs;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Source 5: LinkedIn Job Search API (via RapidAPI)
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function fetchLinkedInJobs(): Promise<NormalisedJob[]> {
+  if (!RAPIDAPI_KEY || !RAPIDAPI_LINKEDIN_HOST) {
+    console.warn('[Ingestion] RapidAPI LinkedIn credentials not set — skipping LinkedIn source');
+    return [];
+  }
+
+  const jobs: NormalisedJob[] = [];
+  const keywords = ['software developer', 'data engineer'];
+
+  for (const keyword of keywords) {
+    try {
+      // LinkedIn Job Search API (Fantastic.Jobs) uses active-jb-7d, active-jb-24h, etc.
+      let res = await fetch(`https://${RAPIDAPI_LINKEDIN_HOST}/active-jb-7d?title_filter=${encodeURIComponent(keyword)}&location_filter=United%20States&limit=20`, {
+        method: 'GET',
+        headers: {
+          'x-rapidapi-key': RAPIDAPI_KEY,
+          'x-rapidapi-host': RAPIDAPI_LINKEDIN_HOST,
+        },
+      });
+
+      if (!res.ok) {
+        // Fallback to active-jb-24h
+        res = await fetch(`https://${RAPIDAPI_LINKEDIN_HOST}/active-jb-24h?title_filter=${encodeURIComponent(keyword)}&location_filter=United%20States&limit=20`, {
+          method: 'GET',
+          headers: {
+            'x-rapidapi-key': RAPIDAPI_KEY,
+            'x-rapidapi-host': RAPIDAPI_LINKEDIN_HOST,
+          },
+        });
+      }
+
+      if (!res.ok) {
+        console.warn(`[Ingestion] LinkedIn RapidAPI keyword "${keyword}" failed (HTTP ${res.status})`);
+        continue;
+      }
+
+      const data = await res.json() as any;
+      let items: any[] = [];
+      if (Array.isArray(data)) {
+        items = data;
+      } else if (data && typeof data === 'object') {
+        items = data.jobs || data.results || data.data || [];
+      }
+
+      for (const item of items) {
+        const normalised = mapToNormalisedJob(item, 'linkedin');
+        if (normalised) {
+          jobs.push(normalised);
+        }
+      }
+
+      console.log(`[Ingestion] LinkedIn: fetched ${items.length} jobs for keyword "${keyword}"`);
+      await new Promise((r) => setTimeout(r, 500));
+    } catch (err) {
+      console.error(`[Ingestion] LinkedIn error for keyword "${keyword}":`, (err as Error).message);
+    }
+  }
+
+  return jobs;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Upsert jobs into the database
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -383,14 +572,16 @@ export async function runJobIngestion(): Promise<void> {
 
   try {
     // Fetch from all sources in parallel
-    const [adzunaJobs, remotiveJobs, remoteOKJobs] = await Promise.all([
+    const [adzunaJobs, remotiveJobs, remoteOKJobs, indeedJobs, linkedinJobs] = await Promise.all([
       fetchAdzunaJobs(),
       fetchRemotiveJobs(),
       fetchRemoteOKJobs(),
+      fetchIndeedJobs(),
+      fetchLinkedInJobs(),
     ]);
 
-    const allJobs = [...adzunaJobs, ...remotiveJobs, ...remoteOKJobs];
-    console.log(`[Ingestion] Total fetched: ${allJobs.length} jobs (Adzuna: ${adzunaJobs.length}, Remotive: ${remotiveJobs.length}, RemoteOK: ${remoteOKJobs.length})`);
+    const allJobs = [...adzunaJobs, ...remotiveJobs, ...remoteOKJobs, ...indeedJobs, ...linkedinJobs];
+    console.log(`[Ingestion] Total fetched: ${allJobs.length} jobs (Adzuna: ${adzunaJobs.length}, Remotive: ${remotiveJobs.length}, RemoteOK: ${remoteOKJobs.length}, Indeed: ${indeedJobs.length}, LinkedIn: ${linkedinJobs.length})`);
 
     if (allJobs.length > 0) {
       const { created, updated } = await upsertJobs(allJobs);
