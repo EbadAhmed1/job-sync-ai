@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { jobApi, type TrendsData, type DomainTrend } from '../api/axios'
 import { useAuth } from '../contexts/AuthContext'
+import { useTheme } from '../contexts/ThemeContext'
 
 // ── Bar colours for demand chart ─────────────────────────────────────────
 const DOMAIN_COLORS = [
@@ -21,8 +22,8 @@ function MarketShareTooltip({ active, payload, label }: {
   if (!active || !payload?.length) return null
   return (
     <div className="glass px-3 py-2 text-sm shadow-xl">
-      <p className="font-semibold text-slate-100">{label}</p>
-      <p className="text-violet-400">Market Share: {payload[0].value}%</p>
+      <p className="font-semibold text-[var(--color-text)]">{label}</p>
+      <p className="text-violet-500 dark:text-violet-400 font-bold">Market Share: {payload[0].value}%</p>
     </div>
   )
 }
@@ -30,11 +31,11 @@ function MarketShareTooltip({ active, payload, label }: {
 // ── Domain detail card ───────────────────────────────────────────────────
 function DomainCard({ domain }: { domain: DomainTrend }) {
   return (
-    <div className="glass p-5 hover:bg-white/[0.07] transition-colors duration-200 group">
+    <div className="glass p-5 hover:bg-[var(--color-surface-hover)] transition-colors duration-200 group">
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2.5">
-          <h3 className="text-sm font-bold text-slate-100 leading-tight">
+          <h3 className="text-sm font-bold text-[var(--color-text)] leading-tight">
             {domain.domain}
           </h3>
         </div>
@@ -43,15 +44,15 @@ function DomainCard({ domain }: { domain: DomainTrend }) {
         <div className="relative group/tooltip">
           <span className={`text-xs font-bold px-2 py-0.5 rounded-full cursor-help transition-all duration-200 ${
             domain.growthPercent >= 30
-              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
+              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25'
               : domain.growthPercent >= 15
-              ? 'bg-amber-500/15 text-amber-400 border border-amber-500/25'
-              : 'bg-slate-500/15 text-slate-400 border border-white/5'
+              ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25'
+              : 'bg-slate-500/15 text-slate-500 dark:text-slate-400 border border-[var(--color-border)]'
           }`}>
             +{domain.growthPercent}%
           </span>
-          <div className="absolute right-0 bottom-full mb-2 hidden group-hover/tooltip:block z-10 bg-zinc-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 shadow-xl font-medium w-48 text-center animate-fade-in pointer-events-none">
-            Year-over-Year demand growth: <span className="text-emerald-400 font-bold">+{domain.growthPercent}%</span>
+          <div className="absolute right-0 bottom-full mb-2 hidden group-hover/tooltip:block z-10 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--color-text)] shadow-xl font-medium w-48 text-center animate-fade-in pointer-events-none">
+            Year-over-Year demand growth: <span className="text-emerald-500 font-bold">+{domain.growthPercent}%</span>
           </div>
         </div>
       </div>
@@ -59,12 +60,12 @@ function DomainCard({ domain }: { domain: DomainTrend }) {
       {/* Market Share bar */}
       <div className="mb-4">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
+          <span className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)] font-semibold">
             Market Share
           </span>
-          <span className="text-[10px] text-slate-500 font-mono">{domain.marketSharePercent}%</span>
+          <span className="text-[10px] text-[var(--color-text-secondary)] font-mono">{domain.marketSharePercent}%</span>
         </div>
-        <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+        <div className="h-1.5 bg-gray-200 dark:bg-white/5 rounded-full overflow-hidden">
           <div
             className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all duration-700 ease-out"
             style={{ width: `${domain.marketSharePercent}%` }}
@@ -74,15 +75,15 @@ function DomainCard({ domain }: { domain: DomainTrend }) {
 
       {/* Top Stacks */}
       <div className="mb-3">
-        <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1.5 flex items-center gap-1">
-          <Flame className="w-3 h-3 text-orange-400" />
+        <p className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)] font-semibold mb-1.5 flex items-center gap-1">
+          <Flame className="w-3 h-3 text-orange-500 dark:text-orange-400" />
           Top Tech Stacks
         </p>
         <div className="flex flex-wrap gap-1.5">
           {domain.topStacks.map((stack) => (
             <span
               key={stack}
-              className="px-2 py-0.5 rounded-md bg-violet-500/10 border border-violet-500/15 text-[11px] font-medium text-violet-300"
+              className="px-2 py-0.5 rounded-md bg-violet-500/10 border border-violet-500/15 text-[11px] font-medium text-violet-600 dark:text-violet-300"
             >
               {stack}
             </span>
@@ -92,13 +93,13 @@ function DomainCard({ domain }: { domain: DomainTrend }) {
 
       {/* Hot Projects */}
       <div>
-        <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1.5">
+        <p className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)] font-semibold mb-1.5">
           Popular Project Types
         </p>
         <ul className="space-y-1">
           {domain.hotProjects.map((project) => (
-            <li key={project} className="flex items-center gap-1.5 text-xs text-slate-400">
-              <ChevronRight className="w-3 h-3 text-indigo-400 flex-shrink-0" />
+            <li key={project} className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)]">
+              <ChevronRight className="w-3 h-3 text-indigo-500 dark:text-indigo-400 flex-shrink-0" />
               {project}
             </li>
           ))}
@@ -110,14 +111,13 @@ function DomainCard({ domain }: { domain: DomainTrend }) {
 
 export default function Dashboard() {
   const { user: authUser } = useAuth()
+  const { isDark } = useTheme()
 
   // ── Trends state ─────────────────────────────────────────────────────────
   const [trends,        setTrends]        = useState<TrendsData | null>(null)
   const [trendsLoading, setTrendsLoading] = useState(true)
   const [trendsError,   setTrendsError]   = useState<string | null>(null)
   const [cacheStatus,   setCacheStatus]   = useState<string>('')
-
-
 
   // ── Fetch trends ──────────────────────────────────────────────────────────
   const fetchTrends = async () => {
@@ -145,14 +145,20 @@ export default function Dashboard() {
     .map((d) => ({ name: d.domain, marketSharePercent: d.marketSharePercent }))
     ?? []
 
+  // Dynamic colors for charts based on theme
+  const chartGridColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'
+  const chartXAxisColor = isDark ? '#94a3b8' : '#6b7280'
+  const chartYAxisColor = isDark ? '#cbd5e1' : '#374151'
+  const chartTooltipCursor = isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)'
+
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto animate-fade-in">
       {/* Page header */}
       <div className="mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-slate-100">
+        <h1 className="text-2xl sm:text-3xl font-bold text-[var(--color-text)]">
           Good {getGreeting()}, <span className="gradient-text">{authUser?.email?.split('@')[0]}</span>
         </h1>
-        <p className="text-slate-400 mt-1 text-sm">Here's what's trending in the freelance tech market.</p>
+        <p className="text-[var(--color-text-secondary)] mt-1 text-sm">Here's what's trending in the freelance tech market.</p>
       </div>
 
       {/* ── Market Trends Section ─────────────────────────────────────────── */}
@@ -162,20 +168,20 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2 flex-wrap">
               <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-violet-400" />
+                <TrendingUp className="w-4 h-4 text-violet-500 dark:text-violet-400" />
               </div>
               <h2 className="section-title">Market Trends</h2>
               {cacheStatus && (
                 <span className={`text-xs px-2 py-0.5 rounded-full font-mono ${
                   cacheStatus === 'HIT'
-                    ? 'bg-emerald-500/10 text-emerald-400'
-                    : 'bg-amber-500/10 text-amber-400'
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                    : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
                 }`}>
                   {cacheStatus === 'HIT' ? '⚡ cached' : '🔄 fresh'}
                 </span>
               )}
               {trends?.lastUpdated && (
-                <span className="text-[10px] text-slate-600 font-mono hidden sm:inline">
+                <span className="text-[10px] text-[var(--color-text-muted)] font-mono hidden sm:inline">
                   Updated {new Date(trends.lastUpdated).toLocaleDateString()}
                 </span>
               )}
@@ -194,10 +200,10 @@ export default function Dashboard() {
           {trendsLoading ? (
             <div className="flex flex-col items-center justify-center h-56 gap-3">
               <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-slate-500">Loading market data…</p>
+              <p className="text-sm text-[var(--color-text-muted)]">Loading market data…</p>
             </div>
           ) : trendsError ? (
-            <div className="flex items-center gap-2 text-red-400 text-sm p-4 bg-red-500/10 rounded-xl">
+            <div className="flex items-center gap-2 text-red-500 dark:text-red-400 text-sm p-4 bg-red-500/10 rounded-xl">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               {trendsError}
             </div>
@@ -205,19 +211,19 @@ export default function Dashboard() {
             <>
               {/* ── Market Share Chart ────────────────────────────────────── */}
               <div className="mb-8">
-                <p className="text-xs text-slate-500 mb-4 font-medium">Domain market share · percentage of freelance tech job market</p>
+                <p className="text-xs text-[var(--color-text-secondary)] mb-4 font-medium">Domain market share · percentage of freelance tech job market</p>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart
                     data={chartData}
                     layout="vertical"
                     margin={{ top: 0, right: 16, left: 0, bottom: 0 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} horizontal={false} />
                     <XAxis
                       type="number"
                       domain={[0, 100]}
                       tickFormatter={(val) => `${val}%`}
-                      tick={{ fill: '#94a3b8', fontSize: 11, fontFamily: 'Inter' }}
+                      tick={{ fill: chartXAxisColor, fontSize: 11, fontFamily: 'Inter' }}
                       axisLine={false}
                       tickLine={false}
                     />
@@ -225,11 +231,11 @@ export default function Dashboard() {
                       type="category"
                       dataKey="name"
                       width={160}
-                      tick={{ fill: '#cbd5e1', fontSize: 11, fontFamily: 'Inter' }}
+                      tick={{ fill: chartYAxisColor, fontSize: 11, fontFamily: 'Inter' }}
                       axisLine={false}
                       tickLine={false}
                     />
-                    <Tooltip content={<MarketShareTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+                    <Tooltip content={<MarketShareTooltip />} cursor={{ fill: chartTooltipCursor }} />
                     <Bar dataKey="marketSharePercent" radius={[0, 6, 6, 0]} barSize={20}>
                       {chartData.map((_, i) => (
                         <Cell key={i} fill={DOMAIN_COLORS[i % DOMAIN_COLORS.length]} />
@@ -241,8 +247,8 @@ export default function Dashboard() {
 
               {/* ── Domain Detail Cards ──────────────────────────────────── */}
               <div>
-                <p className="text-xs text-slate-500 mb-4 flex items-center gap-1.5">
-                  <Flame className="w-3 h-3 text-orange-400" />
+                <p className="text-xs text-[var(--color-text-secondary)] mb-4 flex items-center gap-1.5">
+                  <Flame className="w-3 h-3 text-orange-500 dark:text-orange-400" />
                   Top tech stacks &amp; in-demand project types per domain
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">

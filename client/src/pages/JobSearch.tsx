@@ -8,6 +8,7 @@ import {
   Plus, RotateCcw
 } from 'lucide-react'
 import { jobApi, proposalApi, cvApi, type Job, type FitReport } from '../api/axios'
+import { useTheme } from '../contexts/ThemeContext'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function formatSalary(min: number | null, max: number | null, currency: string | null) {
@@ -56,6 +57,7 @@ function formatBytes(bytes: number) {
 
 // ── Score Ring ────────────────────────────────────────────────────────────────
 function ScoreRing({ score }: { score: number }) {
+  const { isDark } = useTheme()
   const radius      = 36
   const circumference = 2 * Math.PI * radius
   const offset      = circumference - (score / 100) * circumference
@@ -67,7 +69,7 @@ function ScoreRing({ score }: { score: number }) {
       title="Fit Score: AI-assessed compatibility based on required skills, experience level, and role alignment."
     >
       <svg className="absolute inset-0 -rotate-90" viewBox="0 0 88 88">
-        <circle cx="44" cy="44" r={radius} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="6" />
+        <circle cx="44" cy="44" r={radius} fill="none" stroke={isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"} strokeWidth="6" />
         <circle
           cx="44" cy="44" r={radius} fill="none"
           stroke={color} strokeWidth="6" strokeLinecap="round"
@@ -77,8 +79,8 @@ function ScoreRing({ score }: { score: number }) {
         />
       </svg>
       <div className="text-center">
-        <p className="text-xl font-bold text-slate-100">{score}</p>
-        <p className="text-[10px] text-slate-500 font-medium">/ 100</p>
+        <p className="text-xl font-bold text-[var(--color-text)]">{score}</p>
+        <p className="text-[10px] text-[var(--color-text-secondary)] font-medium">/ 100</p>
       </div>
     </div>
   )
@@ -97,16 +99,16 @@ function JobCard({ job, isSelected, onClick }: {
       className={`w-full text-left glass p-4 transition-all duration-150 group ${
         isSelected
           ? 'border-violet-500/50 bg-violet-500/10'
-          : 'hover:bg-white/[0.05] hover:border-white/10'
+          : 'hover:bg-[var(--color-surface-hover)] hover:border-[var(--color-border)]'
       }`}
     >
       {/* Header row */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-100 leading-snug line-clamp-2 group-hover:text-violet-300 transition-colors">
+          <p className="text-sm font-semibold text-[var(--color-text)] leading-snug line-clamp-2 group-hover:text-violet-500 dark:group-hover:text-violet-300 transition-colors">
             {job.title}
           </p>
-          <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+          <p className="text-xs text-[var(--color-text-secondary)] mt-0.5 flex items-center gap-1">
             <Building2 className="w-3 h-3 flex-shrink-0" />
             {job.company}
           </p>
@@ -116,10 +118,10 @@ function JobCard({ job, isSelected, onClick }: {
           <span
             className={`flex-shrink-0 text-xs font-bold px-2 py-0.5 rounded-full cursor-help ${
               score >= 70
-                ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
+                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25'
                 : score >= 40
-                ? 'bg-amber-500/15 text-amber-400 border border-amber-500/25'
-                : 'bg-slate-500/15 text-slate-400 border border-white/5'
+                ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25'
+                : 'bg-slate-500/15 text-slate-500 dark:text-slate-400 border border-[var(--color-border)]'
             }`}
             title="Skill Match: Percentage of this job's required skills matched by your active CV skills."
           >
@@ -129,7 +131,7 @@ function JobCard({ job, isSelected, onClick }: {
       </div>
 
       {/* Meta row */}
-      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+      <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--color-text-secondary)]">
         <span className="flex items-center gap-1">
           {LOCATION_ICONS[job.locationType]}
           {job.location}
@@ -144,7 +146,7 @@ function JobCard({ job, isSelected, onClick }: {
           <MapPin className="w-3 h-3" />
           {timeAgo(job.postedAt)}
         </span>
-        <span className="px-1.5 py-0.5 rounded bg-white/5 text-slate-600 text-[10px]">
+        <span className="px-1.5 py-0.5 rounded bg-[var(--color-bg-secondary)] text-[var(--color-text-muted)] text-[10px]">
           {SOURCE_LABELS[job.source] ?? job.source}
         </span>
       </div>
@@ -219,15 +221,15 @@ function FitPanel({ job, onClose, onGenerateProposal }: {
   const salary = formatSalary(job.salaryMin, job.salaryMax, job.currency)
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-[var(--color-sidebar-bg)] border-l border-[var(--color-border)]">
       {/* Panel header */}
-      <div className="flex items-start justify-between p-5 border-b border-white/5 flex-shrink-0">
+      <div className="flex items-start justify-between p-5 border-b border-[var(--color-border)] flex-shrink-0">
         <div className="min-w-0 pr-4">
-          <h2 className="text-base font-bold text-slate-100 leading-snug">{job.title}</h2>
-          <p className="text-sm text-slate-500 mt-0.5">{job.company} · {job.location}</p>
-          {salary && <p className="text-sm text-emerald-400 mt-1 font-medium">{salary}</p>}
+          <h2 className="text-base font-bold text-[var(--color-text)] leading-snug">{job.title}</h2>
+          <p className="text-sm text-[var(--color-text-secondary)] mt-0.5">{job.company} · {job.location}</p>
+          {salary && <p className="text-sm text-emerald-500 font-medium mt-1">{salary}</p>}
         </div>
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-500 hover:text-slate-300 transition-colors flex-shrink-0">
+        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--color-surface-hover)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] transition-colors flex-shrink-0">
           <X className="w-5 h-5" />
         </button>
       </div>
@@ -237,13 +239,13 @@ function FitPanel({ job, onClose, onGenerateProposal }: {
 
         {fitLoading && (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
-            <Loader2 className="w-7 h-7 text-violet-400 animate-spin" />
-            <p className="text-sm text-slate-500">Analysing your fit with AI…</p>
+            <Loader2 className="w-7 h-7 text-violet-500 animate-spin" />
+            <p className="text-sm text-[var(--color-text-secondary)]">Analysing your fit with AI…</p>
           </div>
         )}
 
         {fitError && (
-          <div className="flex items-start gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-400">
+          <div className="flex items-start gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-500">
             <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
             {fitError}
           </div>
@@ -255,21 +257,21 @@ function FitPanel({ job, onClose, onGenerateProposal }: {
             <div className="glass p-4 flex items-center gap-5">
               <ScoreRing score={fit.score} />
               <div>
-                <p className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-1">Fit Score</p>
-                <p className="text-sm text-slate-300 leading-relaxed">{fit.reasoning}</p>
+                <p className="text-xs uppercase tracking-wider text-[var(--color-text-secondary)] font-semibold mb-1">Fit Score</p>
+                <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">{fit.reasoning}</p>
               </div>
             </div>
 
             {/* Matching skills */}
             {fit.matchingSkills.length > 0 && (
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-emerald-500 font-semibold mb-2 flex items-center gap-1">
+                <p className="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-500 font-semibold mb-2 flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3" />
                   You Have ({fit.matchingSkills.length})
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {fit.matchingSkills.map((s) => (
-                    <span key={s} className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[12px] font-medium text-emerald-400">
+                    <span key={s} className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[12px] font-medium text-emerald-600 dark:text-emerald-400">
                       {s}
                     </span>
                   ))}
@@ -280,13 +282,13 @@ function FitPanel({ job, onClose, onGenerateProposal }: {
             {/* Missing skills */}
             {fit.missingSkills.length > 0 && (
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-red-500 font-semibold mb-2 flex items-center gap-1">
+                <p className="text-[10px] uppercase tracking-wider text-red-600 dark:text-red-500 font-semibold mb-2 flex items-center gap-1">
                   <XCircle className="w-3 h-3" />
                   Gap Detected ({fit.missingSkills.length})
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {fit.missingSkills.map((s) => (
-                    <span key={s} className="px-2.5 py-1 rounded-lg bg-red-500/10 border border-red-500/20 text-[12px] font-medium text-red-400">
+                    <span key={s} className="px-2.5 py-1 rounded-lg bg-red-500/10 border border-red-500/20 text-[12px] font-medium text-red-600 dark:text-red-400">
                       {s}
                     </span>
                   ))}
@@ -297,8 +299,8 @@ function FitPanel({ job, onClose, onGenerateProposal }: {
             {/* Job description snippet */}
             {fullJob?.description && (
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-2">Job Description</p>
-                <p className="text-xs text-slate-400 leading-relaxed line-clamp-6">
+                <p className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)] font-semibold mb-2">Job Description</p>
+                <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed line-clamp-6">
                   {fullJob.description.replace(/<[^>]*>/g, '').substring(0, 600)}…
                 </p>
               </div>
@@ -308,15 +310,15 @@ function FitPanel({ job, onClose, onGenerateProposal }: {
       </div>
 
       {/* Action buttons */}
-      <div className="p-5 border-t border-white/5 flex-shrink-0 space-y-2">
+      <div className="p-5 border-t border-[var(--color-border)] flex-shrink-0 space-y-2">
         {genSuccess ? (
-          <div className="flex items-center gap-2 text-sm text-emerald-400 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+          <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
             <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
             <span>
               Proposal queued!{' '}
               <Link
                 to={`/generator?proposalId=${queuedProposalId}`}
-                className="underline font-semibold hover:text-emerald-300 transition-colors"
+                className="underline font-semibold hover:text-emerald-500 transition-colors"
               >
                 Go to the Generator to view it.
               </Link>
@@ -516,9 +518,9 @@ export default function JobSearch() {
   // Loading profile skills from API
   if (cvLoading) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen gap-3">
+      <div className="flex flex-col items-center justify-center h-screen gap-3 bg-[var(--color-bg)]">
         <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
-        <p className="text-sm text-slate-500">Checking profile context…</p>
+        <p className="text-sm text-[var(--color-text-secondary)]">Checking profile context…</p>
       </div>
     )
   }
@@ -531,18 +533,18 @@ export default function JobSearch() {
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-violet-950/50">
             <Briefcase className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-100">
+          <h1 className="text-2xl sm:text-3xl font-bold text-[var(--color-text)]">
             Get Started with <span className="gradient-text">Job Matches</span>
           </h1>
-          <p className="text-slate-400 mt-2 text-sm max-w-md mx-auto">
+          <p className="text-[var(--color-text-secondary)] mt-2 text-sm max-w-md mx-auto">
             Upload your CV or résumé (PDF/DOCX) below. We will analyze your skills and automatically find matching job listings.
           </p>
         </div>
 
         {/* Location Preference */}
-        <div className="glass p-5 mb-6 border border-white/5">
-          <p className="text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
-            <Globe className="w-4 h-4 text-violet-400" />
+        <div className="glass p-5 mb-6 border border-[var(--color-border)]">
+          <p className="text-sm font-semibold text-[var(--color-text)] mb-3 flex items-center gap-2">
+            <Globe className="w-4 h-4 text-violet-500 dark:text-violet-400" />
             Job Location Preference
           </p>
           <div className="flex flex-wrap gap-2">
@@ -556,8 +558,8 @@ export default function JobSearch() {
                 onClick={() => { setPreference(value); setFilter(value as Filter) }}
                 className={`px-4 py-2 rounded-xl text-sm font-medium border transition-all duration-150 ${
                   preference === value
-                    ? 'bg-violet-600/25 text-violet-300 border-violet-500/40 shadow-lg shadow-violet-950/20'
-                    : 'text-slate-400 border-white/5 hover:border-white/10 hover:text-slate-200'
+                    ? 'bg-violet-600/25 text-violet-600 dark:text-violet-300 border-violet-500/40 shadow-sm'
+                    : 'text-[var(--color-text-secondary)] border-[var(--color-border)] hover:border-[var(--color-text-secondary)]'
                 }`}
               >
                 {label}
@@ -573,7 +575,7 @@ export default function JobSearch() {
               ? 'border-violet-500 bg-violet-500/5'
               : uploadFile
               ? 'border-violet-500/50 bg-violet-500/5'
-              : 'border-white/10 hover:border-white/20 hover:bg-white/[0.02]'
+              : 'border-[var(--color-border)] hover:border-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)]'
           }`}
           onDrop={onDrop}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
@@ -591,15 +593,15 @@ export default function JobSearch() {
           {uploadFile ? (
             <div className="flex items-center justify-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-violet-500/20 flex items-center justify-center">
-                <FileText className="w-6 h-6 text-violet-400" />
+                <FileText className="w-6 h-6 text-violet-500 dark:text-violet-400" />
               </div>
               <div className="text-left">
-                <p className="text-sm font-semibold text-slate-100">{uploadFile.name}</p>
-                <p className="text-xs text-slate-500">{formatBytes(uploadFile.size)}</p>
+                <p className="text-sm font-semibold text-[var(--color-text)]">{uploadFile.name}</p>
+                <p className="text-xs text-[var(--color-text-muted)]">{formatBytes(uploadFile.size)}</p>
               </div>
               <button
                 onClick={(e) => { e.stopPropagation(); setUploadFile(null); setUploadState('idle') }}
-                className="ml-2 p-1.5 rounded-lg hover:bg-white/10 text-slate-500 hover:text-slate-300 transition-colors"
+                className="ml-2 p-1.5 rounded-lg hover:bg-[var(--color-surface-hover)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -607,13 +609,13 @@ export default function JobSearch() {
           ) : (
             <>
               <div className="w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mx-auto mb-4">
-                <Upload className="w-6 h-6 text-violet-400" />
+                <Upload className="w-6 h-6 text-violet-500" />
               </div>
-              <p className="text-sm font-semibold text-slate-200 mb-1">
+              <p className="text-sm font-semibold text-[var(--color-text)] mb-1">
                 Drag & drop your CV here
               </p>
-              <p className="text-xs text-slate-500 mb-3">or click to browse</p>
-              <p className="text-[11px] text-slate-600 font-mono">PDF or DOCX · Max 5 MB</p>
+              <p className="text-xs text-[var(--color-text-secondary)] mb-3">or click to browse</p>
+              <p className="text-[11px] text-[var(--color-text-muted)] font-mono">PDF or DOCX · Max 5 MB</p>
             </>
           )}
         </div>
@@ -622,12 +624,12 @@ export default function JobSearch() {
         {uploadState === 'uploading' && (
           <div className="glass p-5 mb-6">
             <div className="flex items-center gap-3 mb-3">
-              <Loader2 className="w-4 h-4 text-violet-400 animate-spin" />
-              <p className="text-sm text-slate-300 font-medium">
+              <Loader2 className="w-4 h-4 text-violet-500 animate-spin" />
+              <p className="text-sm text-[var(--color-text-secondary)] font-medium">
                 {uploadProgress < 100 ? `Uploading… ${uploadProgress}%` : 'Extracting skills with AI…'}
               </p>
             </div>
-            <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-gray-200 dark:bg-white/5 rounded-full overflow-hidden">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all duration-300"
                 style={{ width: `${uploadProgress < 100 ? uploadProgress : 100}%` }}
@@ -638,7 +640,7 @@ export default function JobSearch() {
 
         {/* Error box */}
         {uploadState === 'error' && uploadError && (
-          <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20 mb-6 text-sm text-red-400">
+          <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20 mb-6 text-sm text-red-500">
             <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
             <p>{uploadError}</p>
           </div>
@@ -648,7 +650,7 @@ export default function JobSearch() {
         {uploadFile && uploadState !== 'uploading' && (
           <button
             onClick={handleUpload}
-            className="btn-primary w-full flex items-center justify-center gap-2 py-3 shadow-lg shadow-violet-950/20"
+            className="btn-primary w-full flex items-center justify-center gap-2 py-3 shadow-lg"
           >
             <Sparkles className="w-4 h-4" />
             Analyze & Build Profile
@@ -660,23 +662,23 @@ export default function JobSearch() {
 
   // VIEW 2: CV Profile exits, show Job matching board
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex h-full overflow-hidden bg-[var(--color-bg)]">
 
       {/* ── Left panel: Job list & Active Profile widgets ─────────────────── */}
-      <div className={`flex flex-col ${selectedJob ? 'hidden lg:flex lg:w-[460px]' : 'w-full'} border-r border-white/5 flex-shrink-0 bg-zinc-950/20`}>
+      <div className={`flex flex-col ${selectedJob ? 'hidden lg:flex lg:w-[460px]' : 'w-full'} border-r border-[var(--color-border)] flex-shrink-0 bg-[var(--color-bg-secondary)]`}>
 
         {/* Header Widget Panel */}
-        <div className="p-4 border-b border-white/5 flex-shrink-0 space-y-3">
+        <div className="p-4 border-b border-[var(--color-border)] flex-shrink-0 space-y-3">
           
           {/* Quick-Upload CV Widget */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/[0.02] border border-white/5 rounded-xl px-4 py-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl px-4 py-3">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center flex-shrink-0">
-                <FileText className="w-4 h-4 text-violet-400" />
+                <FileText className="w-4 h-4 text-violet-500" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-slate-300">Active Profile</p>
-                <p className="text-[11px] text-slate-500 truncate">
+                <p className="text-xs font-semibold text-[var(--color-text)]">Active Profile</p>
+                <p className="text-[11px] text-[var(--color-text-secondary)] truncate">
                   {dbSkills.length} parsed skills · {filter === 'remote_only' ? 'Remote' : filter === 'onsite_only' ? 'On-site' : 'All Locations'}
                 </p>
               </div>
@@ -684,7 +686,7 @@ export default function JobSearch() {
 
             <button
               onClick={() => setShowUpdateCV(!showUpdateCV)}
-              className="px-2.5 py-1 rounded-lg border border-white/10 hover:border-white/20 text-[11px] font-medium text-slate-300 hover:text-slate-100 transition-colors flex items-center justify-center gap-1 flex-shrink-0"
+              className="px-2.5 py-1 rounded-lg border border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] text-[11px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text)] transition-colors flex items-center justify-center gap-1 flex-shrink-0"
             >
               {showUpdateCV ? <X className="w-3.5 h-3.5" /> : <Upload className="w-3.5 h-3.5" />}
               {showUpdateCV ? 'Cancel' : 'Update CV'}
@@ -696,7 +698,7 @@ export default function JobSearch() {
             <div className="glass p-4 border border-violet-500/20 rounded-xl space-y-3 animate-slide-down">
               <div
                 className={`border border-dashed rounded-lg p-4 text-center cursor-pointer ${
-                  dragOver ? 'border-violet-500 bg-violet-500/5' : 'border-white/10 hover:border-white/20'
+                  dragOver ? 'border-violet-500 bg-violet-500/5' : 'border-[var(--color-border)] hover:border-[var(--color-text-muted)]'
                 }`}
                 onDrop={onDrop}
                 onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
@@ -711,23 +713,23 @@ export default function JobSearch() {
                   onChange={(e) => e.target.files?.[0] && selectFile(e.target.files[0])}
                 />
                 {uploadFile ? (
-                  <p className="text-xs text-slate-200 truncate">{uploadFile.name}</p>
+                  <p className="text-xs text-[var(--color-text)] truncate">{uploadFile.name}</p>
                 ) : (
-                  <p className="text-xs text-slate-400">Drag PDF/DOCX here or click to browse</p>
+                  <p className="text-xs text-[var(--color-text-secondary)]">Drag PDF/DOCX here or click to browse</p>
                 )}
               </div>
 
               {uploadState === 'uploading' && (
                 <div className="space-y-1">
-                  <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                  <div className="h-1 bg-[var(--color-border)] rounded-full overflow-hidden">
                     <div className="h-full bg-violet-500" style={{ width: `${uploadProgress}%` }} />
                   </div>
-                  <p className="text-[10px] text-slate-400">Uploading: {uploadProgress}%</p>
+                  <p className="text-[10px] text-[var(--color-text-secondary)]">Uploading: {uploadProgress}%</p>
                 </div>
               )}
 
               {uploadError && (
-                <p className="text-[11px] text-red-400 flex items-center gap-1">
+                <p className="text-[11px] text-red-500 flex items-center gap-1">
                   <AlertCircle className="w-3 h-3 flex-shrink-0" />
                   {uploadError}
                 </p>
@@ -748,11 +750,11 @@ export default function JobSearch() {
           {/* Tag Filter Widget (Direct Tag Editing) */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Matching Tags</p>
+              <p className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)] font-bold">Matching Tags</p>
               {JSON.stringify(activeTags) !== JSON.stringify(dbSkills) && (
                 <button
                   onClick={resetToDbSkills}
-                  className="text-[10px] text-violet-400 hover:text-violet-300 font-medium flex items-center gap-1 transition-colors"
+                  className="text-[10px] text-violet-500 hover:text-violet-600 font-medium flex items-center gap-1 transition-colors"
                 >
                   <RotateCcw className="w-3 h-3" />
                   Reset to CV
@@ -765,12 +767,12 @@ export default function JobSearch() {
               {activeTags.map((tag) => (
                 <span
                   key={tag}
-                  className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-violet-500/10 border border-violet-500/20 text-[11px] font-medium text-violet-300"
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-violet-500/10 border border-violet-500/20 text-[11px] font-medium text-violet-600 dark:text-violet-300"
                 >
                   {tag}
                   <button
                     onClick={() => removeTag(tag)}
-                    className="p-0.5 rounded hover:bg-violet-500/20 text-violet-400 hover:text-violet-200 transition-colors"
+                    className="p-0.5 rounded hover:bg-violet-500/20 text-violet-500 hover:text-violet-600 transition-colors"
                   >
                     <X className="w-2.5 h-2.5" />
                   </button>
@@ -785,10 +787,10 @@ export default function JobSearch() {
                     placeholder="+ Add skill"
                     value={newTagInput}
                     onChange={(e) => setNewTagInput(e.target.value)}
-                    className="bg-transparent border border-white/10 rounded-lg px-2 py-0.5 text-[11px] text-slate-300 placeholder-slate-600 focus:outline-none focus:border-violet-500/50 w-24 transition-colors"
+                    className="bg-transparent border border-[var(--color-border)] rounded-lg px-2 py-0.5 text-[11px] text-[var(--color-text)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-violet-500/50 w-24 transition-colors"
                   />
                   {newTagInput && (
-                    <button type="submit" className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-violet-400 hover:text-violet-300">
+                    <button type="submit" className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-violet-500 hover:text-violet-600">
                       <Plus className="w-3 h-3" />
                     </button>
                   )}
@@ -798,22 +800,22 @@ export default function JobSearch() {
           </div>
 
           {/* Job Search header / search keyword query */}
-          <div className="flex items-center gap-2 pt-1 border-t border-white/5">
+          <div className="flex items-center gap-2 pt-1 border-t border-[var(--color-border)]">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-secondary)]" />
               <input
                 type="text"
                 placeholder="Filter matching jobs by title/company…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500/50 transition-colors"
+                className="w-full pl-9 pr-4 py-2 bg-[var(--color-input-bg)] border border-[var(--color-border)] rounded-xl text-xs text-[var(--color-text)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-violet-500/50 transition-colors"
               />
             </div>
             
             <button
               onClick={() => fetchJobs(filter, activeTags)}
               disabled={loading}
-              className="p-2 bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/25 text-slate-400 hover:text-slate-200 rounded-xl transition-colors disabled:opacity-50"
+              className="p-2 bg-[var(--color-surface)] border border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] rounded-xl transition-colors disabled:opacity-50"
               aria-label="Refresh matching jobs list"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -832,8 +834,8 @@ export default function JobSearch() {
                 onClick={() => setFilter(value)}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-[11px] font-medium border transition-all ${
                   filter === value
-                    ? 'bg-violet-600/20 text-violet-300 border-violet-500/25 shadow-sm'
-                    : 'text-slate-500 border-white/5 hover:border-white/10 hover:text-slate-300'
+                    ? 'bg-violet-600/20 text-violet-600 dark:text-violet-300 border-violet-500/25 shadow-sm'
+                    : 'text-[var(--color-text-secondary)] border-[var(--color-border)] hover:text-[var(--color-text)]'
                 }`}
               >
                 {icon} {label}
@@ -846,12 +848,12 @@ export default function JobSearch() {
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="flex flex-col items-center justify-center h-64 gap-3">
-              <Loader2 className="w-7 h-7 text-violet-400 animate-spin" />
-              <p className="text-xs text-slate-500">Finding matches based on tags…</p>
+              <Loader2 className="w-7 h-7 text-violet-500 animate-spin" />
+              <p className="text-xs text-[var(--color-text-secondary)]">Finding matches based on tags…</p>
             </div>
           ) : error ? (
             <div className="p-4">
-              <div className="flex items-start gap-2 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+              <div className="flex items-start gap-2 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-500">
                 <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                 {error}
               </div>
@@ -859,17 +861,17 @@ export default function JobSearch() {
           ) : emptyMsg ? (
             <div className="flex flex-col items-center justify-center h-64 gap-4 p-6 text-center">
               <div className="w-12 h-12 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-                <Zap className="w-5 h-5 text-violet-400" />
+                <Zap className="w-5 h-5 text-violet-500" />
               </div>
-              <p className="text-xs text-slate-400 leading-relaxed">{emptyMsg}</p>
+              <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">{emptyMsg}</p>
             </div>
           ) : filteredJobs.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 gap-3 text-center p-6">
-              <Search className="w-7 h-7 text-slate-600" />
-              <p className="text-xs text-slate-500">No jobs match your search queries.</p>
+              <Search className="w-7 h-7 text-[var(--color-text-muted)]" />
+              <p className="text-xs text-[var(--color-text-muted)]">No jobs match your search queries.</p>
             </div>
           ) : (
-            <div className="divide-y divide-white/[0.03]">
+            <div className="divide-y divide-[var(--color-border)]">
               {filteredJobs.map((job) => (
                 <JobCard
                   key={job.id}
@@ -884,8 +886,8 @@ export default function JobSearch() {
 
         {/* Match Count Footer */}
         {!loading && filteredJobs.length > 0 && (
-          <div className="px-4 py-2 border-t border-white/5 flex-shrink-0 bg-zinc-950/40">
-            <p className="text-[10px] text-slate-600 font-medium">
+          <div className="px-4 py-2 border-t border-[var(--color-border)] flex-shrink-0 bg-[var(--color-sidebar-bg)]">
+            <p className="text-[10px] text-[var(--color-text-muted)] font-medium">
               {filteredJobs.length} matching job{filteredJobs.length !== 1 ? 's' : ''} listed
             </p>
           </div>
@@ -894,7 +896,7 @@ export default function JobSearch() {
 
       {/* ── Right panel: Fit report side-view panel ─────────────────────── */}
       {selectedJob && (
-        <div className="flex-1 min-w-0 bg-zinc-950/40">
+        <div className="flex-1 min-w-0 bg-[var(--color-bg)]">
           <FitPanel
             job={selectedJob}
             onClose={() => setSelectedJob(null)}
@@ -907,12 +909,12 @@ export default function JobSearch() {
 
       {/* Empty panel screen placeholder (desktop views) */}
       {!selectedJob && (
-        <div className="hidden lg:flex flex-1 items-center justify-center flex-col gap-4 text-center p-8">
-          <div className="w-16 h-16 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-center shadow-lg">
-            <ChevronRight className="w-6 h-6 text-violet-400" />
+        <div className="hidden lg:flex flex-1 items-center justify-center flex-col gap-4 text-center p-8 bg-[var(--color-bg)]">
+          <div className="w-16 h-16 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center justify-center shadow-lg">
+            <ChevronRight className="w-6 h-6 text-violet-500" />
           </div>
-          <p className="text-sm font-semibold text-slate-300">No Job Selected</p>
-          <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
+          <p className="text-sm font-semibold text-[var(--color-text)]">No Job Selected</p>
+          <p className="text-xs text-[var(--color-text-secondary)] max-w-xs leading-relaxed">
             Select any listing from the dashboard to run an AI Fit-Gap analysis and prepare your proposal.
           </p>
         </div>

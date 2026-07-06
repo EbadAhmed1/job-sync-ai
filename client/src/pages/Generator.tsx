@@ -5,21 +5,24 @@ import {
   RefreshCcw, ChevronDown, ChevronUp, User as UserIcon, Save, CheckCircle2,
 } from 'lucide-react'
 import { proposalApi, userApi, type Proposal } from '../api/axios'
+import { useTheme } from '../contexts/ThemeContext'
+import AIOrb from '../components/AIOrb'
 
 type GenStatus = 'idle' | 'submitting' | 'polling' | 'completed' | 'failed'
 
 const POLL_INTERVAL_MS = 3000
 
 const statusMeta: Record<GenStatus, { label: string; color: string }> = {
-  idle:       { label: 'Ready',       color: 'text-slate-400'  },
-  submitting: { label: 'Submitting…', color: 'text-violet-400' },
-  polling:    { label: 'Generating…', color: 'text-amber-400'  },
-  completed:  { label: 'Completed',   color: 'text-emerald-400'},
-  failed:     { label: 'Failed',      color: 'text-red-400'    },
+  idle:       { label: 'Ready',       color: 'text-[var(--color-text-secondary)]'  },
+  submitting: { label: 'Submitting…', color: 'text-violet-500' },
+  polling:    { label: 'Generating…', color: 'text-amber-500'  },
+  completed:  { label: 'Completed',   color: 'text-emerald-500'},
+  failed:     { label: 'Failed',      color: 'text-red-500'    },
 }
 
 export default function Generator() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const { isDark } = useTheme()
   const queryProposalId = searchParams.get('proposalId')
 
   // ── Form state ───────────────────────────────────────────────────────────
@@ -274,16 +277,16 @@ export default function Generator() {
   const charCount = jobDescription.length
 
   return (
-    <div className="p-8 max-w-4xl mx-auto animate-fade-in">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto animate-fade-in">
       {/* Page header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-900/40">
             <Wand2 className="w-5 h-5 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-100">Proposal Generator</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-[var(--color-text)]">Proposal Generator</h1>
         </div>
-        <p className="text-slate-400 text-sm ml-12">
+        <p className="text-[var(--color-text-secondary)] text-sm ml-12">
           Paste a job description and get a tailored, AI-written proposal in seconds.
         </p>
       </div>
@@ -295,7 +298,7 @@ export default function Generator() {
             {/* Job description */}
             <div className="glass p-5">
               <label htmlFor="job-description" className="label">
-                Job Description <span className="text-red-400">*</span>
+                Job Description <span className="text-red-500">*</span>
               </label>
               <textarea
                 id="job-description"
@@ -309,7 +312,7 @@ export default function Generator() {
                 disabled={isRunning}
               />
               <div className="flex justify-between mt-1.5">
-                <p className={`text-xs ${charCount < 50 ? 'text-amber-400' : 'text-slate-600'}`}>
+                <p className={`text-xs ${charCount < 50 ? 'text-amber-500' : 'text-[var(--color-text-muted)]'}`}>
                   {charCount < 50 ? `${50 - charCount} more chars needed` : `${charCount} / 20,000`}
                 </p>
               </div>
@@ -320,18 +323,18 @@ export default function Generator() {
               <button
                 type="button"
                 onClick={() => setIsPortfolioOpen((v) => !v)}
-                className="w-full flex items-center justify-between px-5 py-3.5 text-sm font-medium text-slate-400 hover:text-slate-200 transition-colors"
+                className="w-full flex items-center justify-between px-5 py-3.5 text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text)] transition-colors"
               >
                 <span className="flex items-center gap-2">
-                  <UserIcon className="w-4 h-4 text-indigo-400" />
+                  <UserIcon className="w-4 h-4 text-violet-500 dark:text-indigo-400" />
                   My Portfolio Context
                 </span>
                 {isPortfolioOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </button>
 
               {isPortfolioOpen && (
-                <div className="px-5 pb-5 space-y-3 border-t border-white/5 pt-3">
-                  <p className="text-[11px] text-slate-500">
+                <div className="px-5 pb-5 space-y-3 border-t border-[var(--color-border)] pt-3">
+                  <p className="text-[11px] text-[var(--color-text-muted)]">
                     Describe your skills, experience, and wins. The AI uses this to personalize the proposal.
                   </p>
                   {portfolioLoading ? (
@@ -350,7 +353,7 @@ export default function Generator() {
                     />
                   )}
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-slate-600">
+                    <span className="text-[10px] text-[var(--color-text-muted)]">
                       {portfolio.length.toLocaleString()}/10,000
                     </span>
                     <button
@@ -376,7 +379,7 @@ export default function Generator() {
                     </button>
                   </div>
                   {portfolioSaveStatus === 'error' && (
-                    <p className="text-[11px] text-red-400 flex items-center gap-1">
+                    <p className="text-[11px] text-red-500 dark:text-red-400 flex items-center gap-1">
                       <AlertCircle className="w-3 h-3" /> Failed to save.
                     </p>
                   )}
@@ -389,14 +392,14 @@ export default function Generator() {
               <button
                 type="button"
                 onClick={() => setShowAdvanced((v) => !v)}
-                className="w-full flex items-center justify-between px-5 py-3.5 text-sm font-medium text-slate-400 hover:text-slate-200 transition-colors"
+                className="w-full flex items-center justify-between px-5 py-3.5 text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text)] transition-colors"
               >
                 <span>Advanced options</span>
                 {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </button>
 
               {showAdvanced && (
-                <div className="px-5 pb-5 space-y-3 border-t border-white/5">
+                <div className="px-5 pb-5 space-y-3 border-t border-[var(--color-border)]">
                   <div className="pt-3">
                     <label htmlFor="job-title" className="label">Job Title</label>
                     <input
@@ -456,7 +459,7 @@ export default function Generator() {
               {genStatus !== 'idle' && (
                 <div className="flex items-center gap-2">
                   {isRunning && (
-                    <span className="flex items-center gap-1.5 text-xs text-amber-400">
+                    <span className="flex items-center gap-1.5 text-xs text-amber-500">
                       <Clock className="w-3 h-3" />
                       Poll #{pollCount}
                     </span>
@@ -473,60 +476,45 @@ export default function Generator() {
               {genStatus === 'idle' && !fitChecking && !showWarningGate && (
                 <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 py-8">
                   <div className="w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center">
-                    <Wand2 className="w-8 h-8 text-violet-400/50" />
+                    <Wand2 className="w-8 h-8 text-violet-500/50" />
                   </div>
-                  <p className="text-slate-500 text-sm max-w-xs">
-                    Fill in the job description and click <strong className="text-slate-400">Generate Proposal</strong> to get started.
+                  <p className="text-[var(--color-text-muted)] text-sm max-w-xs">
+                    Fill in the job description and click <strong className="text-[var(--color-text-secondary)]">Generate Proposal</strong> to get started.
                   </p>
                 </div>
               )}
 
               {isRunning && (
-                <div className="flex-1 flex flex-col items-center justify-center gap-4">
-                  {/* Animated AI thinking indicator */}
-                  <div className="relative">
-                    <div className="w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center">
-                      <Wand2 className="w-8 h-8 text-violet-400 animate-pulse" />
-                    </div>
-                    <div className="absolute inset-0 rounded-2xl bg-violet-500/10 animate-ping" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-slate-200 font-medium text-sm">
+                <div className="flex-1 flex flex-col items-center justify-center gap-4 py-8">
+                  {/* Premium AI canvas-orb loader animation */}
+                  <AIOrb size={120} isDark={isDark} />
+                  <div className="text-center space-y-1">
+                    <p className="text-[var(--color-text)] font-semibold text-sm">
                       {fitChecking
                         ? 'Analyzing fit with your portfolio…'
                         : genStatus === 'submitting'
                         ? 'Queuing your request…'
                         : 'AI is crafting your proposal…'}
                     </p>
-                    <p className="text-slate-500 text-xs mt-1">
+                    <p className="text-[var(--color-text-muted)] text-xs">
                       {fitChecking
                         ? 'Comparing skills and overlap…'
                         : genStatus === 'polling'
-                        ? `Checking every ${POLL_INTERVAL_MS / 1000}s · attempt ${pollCount}`
+                        ? `Checking status · attempt ${pollCount}`
                         : 'Almost there…'}
                     </p>
-                  </div>
-                  {/* Progress dots */}
-                  <div className="flex gap-1.5">
-                    {[0, 1, 2].map((i) => (
-                      <span
-                        key={i}
-                        className="w-2 h-2 rounded-full bg-violet-500 animate-bounce"
-                        style={{ animationDelay: `${i * 0.15}s` }}
-                      />
-                    ))}
                   </div>
                 </div>
               )}
 
               {showWarningGate && fitAnalysis && (
                 <div className="flex-1 flex flex-col gap-5 justify-center py-4 animate-fade-in text-left">
-                  <div className="flex items-center gap-3 text-amber-400 bg-amber-500/10 px-4 py-3.5 rounded-xl border border-amber-500/20 text-sm">
+                  <div className="flex items-center gap-3 text-amber-600 dark:text-amber-400 bg-amber-500/10 px-4 py-3.5 rounded-xl border border-amber-500/20 text-sm">
                     <AlertCircle className="w-5 h-5 flex-shrink-0" />
                     <div>
-                      <h4 className="font-bold text-slate-100">Low Compatibility Warning</h4>
-                      <p className="text-slate-400 text-xs mt-0.5">
-                        This job has a fit score of <strong className="text-amber-400">{fitAnalysis.score}%</strong>. It may be a low-probability win.
+                      <h4 className="font-bold text-[var(--color-text)]">Low Compatibility Warning</h4>
+                      <p className="text-[var(--color-text-secondary)] text-xs mt-0.5">
+                        This job has a fit score of <strong className="text-amber-500 font-bold">{fitAnalysis.score}%</strong>. It may be a low-probability win.
                       </p>
                     </div>
                   </div>
@@ -535,35 +523,35 @@ export default function Generator() {
                     {/* Skills Breakdown */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="glass p-3 border border-emerald-500/10">
-                        <p className="text-[10px] uppercase tracking-wider text-emerald-400 font-bold mb-1.5">
+                        <p className="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 font-bold mb-1.5">
                           Matching Skills
                         </p>
                         <div className="flex flex-wrap gap-1.5">
                           {fitAnalysis.matchingSkills.length > 0 ? (
                             fitAnalysis.matchingSkills.map((s) => (
-                              <span key={s} className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-medium text-emerald-300">
+                              <span key={s} className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-medium text-emerald-600 dark:text-emerald-300">
                                 {s}
                               </span>
                             ))
                           ) : (
-                            <span className="text-xs text-slate-500">None found</span>
+                            <span className="text-xs text-[var(--color-text-muted)]">None found</span>
                           )}
                         </div>
                       </div>
 
                       <div className="glass p-3 border border-red-500/10">
-                        <p className="text-[10px] uppercase tracking-wider text-red-400 font-bold mb-1.5">
+                        <p className="text-[10px] uppercase tracking-wider text-red-500 dark:text-red-400 font-bold mb-1.5">
                           Missing Skills
                         </p>
                         <div className="flex flex-wrap gap-1.5">
                           {fitAnalysis.missingSkills.length > 0 ? (
                             fitAnalysis.missingSkills.map((s) => (
-                              <span key={s} className="px-2 py-0.5 rounded bg-red-500/10 border border-red-500/20 text-[10px] font-medium text-red-300">
+                              <span key={s} className="px-2 py-0.5 rounded bg-red-500/10 border border-red-500/20 text-[10px] font-medium text-red-600 dark:text-red-300">
                                 {s}
                               </span>
                             ))
                           ) : (
-                            <span className="text-xs text-slate-500">None identified</span>
+                            <span className="text-xs text-[var(--color-text-muted)]">None identified</span>
                           )}
                         </div>
                       </div>
@@ -571,8 +559,8 @@ export default function Generator() {
 
                     {/* Reasoning */}
                     {fitAnalysis.reasoning && (
-                      <div className="glass p-4 text-xs leading-relaxed text-slate-300 bg-white/5 border border-white/5 rounded-xl">
-                        <p className="font-semibold text-slate-200 mb-1">Fit Analysis Explanation:</p>
+                      <div className="glass p-4 text-xs leading-relaxed text-[var(--color-text-secondary)] bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-xl">
+                        <p className="font-semibold text-[var(--color-text)] mb-1">Fit Analysis Explanation:</p>
                         {fitAnalysis.reasoning}
                       </div>
                     )}
@@ -593,7 +581,7 @@ export default function Generator() {
                         setFitAnalysis(null)
                         setGenStatus('idle')
                       }}
-                      className="btn-ghost flex-1 justify-center py-2.5 text-sm border border-white/10"
+                      className="btn-ghost flex-1 justify-center py-2.5 text-sm border border-[var(--color-border)]"
                     >
                       Cancel
                     </button>
@@ -602,8 +590,8 @@ export default function Generator() {
               )}
 
               {genStatus === 'failed' && (
-                <div className="flex-1 flex flex-col items-center justify-center gap-4">
-                  <div className="flex items-center gap-2 text-red-400 bg-red-500/10 px-4 py-3 rounded-xl text-sm text-center">
+                <div className="flex-1 flex flex-col items-center justify-center gap-4 py-8">
+                  <div className="flex items-center gap-2 text-red-500 dark:text-red-400 bg-red-500/10 px-4 py-3 rounded-xl text-sm text-center">
                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
                     {error ?? 'Generation failed.'}
                   </div>
@@ -621,22 +609,22 @@ export default function Generator() {
                 <div className="flex-1 flex flex-col gap-3 animate-fade-in text-left">
                   {/* Fit Check Summary Block */}
                   {completedProposal && completedProposal.fitScore !== null && completedProposal.fitScore !== undefined && (
-                    <div className="glass p-4 border border-violet-500/10 mb-1 flex items-center justify-between gap-4 flex-wrap bg-violet-950/10 rounded-xl">
+                    <div className="glass p-4 border border-violet-500/10 mb-1 flex items-center justify-between gap-4 flex-wrap bg-violet-500/5 rounded-xl">
                       <div className="flex-1 min-w-[200px]">
                         <div className="flex items-center gap-2">
                           <span className={`w-2.5 h-2.5 rounded-full ${
                             completedProposal.fitScore >= 75
-                              ? 'bg-emerald-400'
+                              ? 'bg-emerald-500'
                               : completedProposal.fitScore >= 55
-                              ? 'bg-amber-400'
-                              : 'bg-red-400'
+                              ? 'bg-amber-500'
+                              : 'bg-red-500'
                           }`} />
-                          <h4 className="font-bold text-xs text-slate-100">
+                          <h4 className="font-bold text-xs text-[var(--color-text)]">
                             Fit Check Match: <span className="gradient-text">{completedProposal.fitScore}%</span>
                           </h4>
                         </div>
                         {completedProposal.fitReasoning && (
-                          <p className="text-[11px] text-slate-400 mt-1 leading-normal">
+                          <p className="text-[11px] text-[var(--color-text-secondary)] mt-1 leading-normal">
                             {completedProposal.fitReasoning}
                           </p>
                         )}
@@ -646,7 +634,7 @@ export default function Generator() {
                       {completedProposal.matchingSkills && completedProposal.matchingSkills.length > 0 && (
                         <div className="flex flex-wrap gap-1 max-w-[250px]">
                           {completedProposal.matchingSkills.map((s) => (
-                            <span key={s} className="px-1.5 py-0.5 rounded bg-violet-500/10 border border-violet-500/10 text-[9px] font-medium text-violet-300">
+                            <span key={s} className="px-1.5 py-0.5 rounded bg-violet-500/10 border border-violet-500/10 text-[9px] font-medium text-violet-600 dark:text-violet-300">
                               {s}
                             </span>
                           ))}
@@ -660,7 +648,7 @@ export default function Generator() {
                       id="generated-proposal-output"
                       value={generatedText}
                       readOnly
-                      className="input w-full h-full min-h-[280px] resize-none leading-relaxed text-slate-200 bg-emerald-500/5 border-emerald-500/20"
+                      className="input w-full h-full min-h-[280px] resize-none leading-relaxed text-[var(--color-text)] bg-emerald-500/5 border-emerald-500/20"
                     />
                   </div>
                   <div className="flex gap-2">
@@ -689,8 +677,8 @@ export default function Generator() {
                   </div>
 
                   {/* Refinement Options */}
-                  <div className="border-t border-white/5 pt-4 mt-2">
-                    <p className="text-xs font-semibold text-slate-300 mb-2">Refine this proposal</p>
+                  <div className="border-t border-[var(--color-border)] pt-4 mt-2">
+                    <p className="text-xs font-semibold text-[var(--color-text-secondary)] mb-2">Refine this proposal</p>
                     
                     {/* Preset buttons */}
                     <div className="flex flex-wrap gap-1.5 mb-3">
@@ -705,7 +693,7 @@ export default function Generator() {
                           type="button"
                           disabled={isRunning}
                           onClick={() => handleRefine(preset.instruction)}
-                          className="px-2.5 py-1.5 rounded bg-white/5 border border-white/10 text-[11px] text-slate-400 hover:text-slate-200 hover:bg-white/10 hover:border-white/20 transition-all font-medium"
+                          className="px-2.5 py-1.5 rounded bg-[var(--color-surface)] border border-[var(--color-border)] text-[11px] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-hover)] transition-all font-medium"
                         >
                           {preset.label}
                         </button>
@@ -720,7 +708,7 @@ export default function Generator() {
                         onChange={(e) => setRefinementInput(e.target.value)}
                         placeholder="e.g. Focus more on my experience with React Native..."
                         disabled={isRunning}
-                        className="input text-xs h-9 py-1 flex-1 bg-white/[0.03] border-white/10 text-slate-200"
+                        className="input text-xs h-9 py-1 flex-1 bg-[var(--color-input-bg)] border-[var(--color-input-border)] text-[var(--color-text)]"
                       />
                       <button
                         type="submit"
