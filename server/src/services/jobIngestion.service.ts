@@ -289,17 +289,27 @@ async function fetchRemoteOKJobs(): Promise<NormalisedJob[]> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function mapToNormalisedJob(item: any, source: 'indeed' | 'linkedin'): NormalisedJob | null {
-  const externalId = item.id || item.job_id || item.job_key || item.externalId || item.jobId;
+  const externalId = item.id || item.jobKey || item.job_id || item.jobId;
   const title = item.title || item.job_title || item.position || item.jobTitle;
   if (!externalId || !title) return null;
 
-  const company = item.company || item.company_name || item.companyName || 'Unknown Company';
-  const location = item.location || item.job_location || 'Unknown';
+  const company = item.company || item.organization || item.company_name || 'Unknown Company';
+
+  let location = 'Unknown';
+  if (typeof item.location === 'string') {
+    location = item.location;
+  } else if (Array.isArray(item.locations) && item.locations[0]?.address) {
+    const addr = item.locations[0].address;
+    location = [addr.addressLocality, addr.addressRegion, addr.addressCountry]
+      .filter(Boolean)
+      .join(', ');
+  }
+
   const description = item.description || item.job_description || item.summary || '';
-  const applyUrl = item.applyUrl || item.apply_url || item.job_url || item.url || item.link || '';
+  const applyUrl = item.url || item.job_url || item.applyUrl || item.apply_url || item.link || '';
   
   let postedAt = new Date();
-  const dateStr = item.postDate || item.post_date || item.posted_at || item.pub_date || item.date || item.created || item.pub_date_start_time;
+  const dateStr = item.date_posted || item.postDate || item.post_date || item.posted_at || item.pub_date || item.date || item.created;
   if (dateStr) {
     const d = new Date(dateStr);
     if (!isNaN(d.getTime())) {
@@ -354,25 +364,21 @@ async function fetchIndeedJobs(): Promise<NormalisedJob[]> {
 
   for (const keyword of keywords) {
     try {
-      // Typically Indeed Scrapers use GET/POST endpoints. Let's try both /search and /jobs paths
-      let res = await fetch(`https://${RAPIDAPI_INDEED_HOST}/search?query=${encodeURIComponent(keyword)}&location=United%20States&limit=20`, {
-        method: 'GET',
+      const res = await fetch(`https://${RAPIDAPI_INDEED_HOST}/api/job`, {
+        method: 'POST',
         headers: {
           'x-rapidapi-key': RAPIDAPI_KEY,
           'x-rapidapi-host': RAPIDAPI_INDEED_HOST,
+          'content-type': 'application/json',
         },
+        body: JSON.stringify({
+          scraper: {
+            query: keyword,
+            location: 'United States',
+            limit: 20
+          }
+        })
       });
-
-      if (!res.ok) {
-        // Fallback to /jobs path if /search returns error/404
-        res = await fetch(`https://${RAPIDAPI_INDEED_HOST}/jobs?query=${encodeURIComponent(keyword)}&location=United%20States&limit=20`, {
-          method: 'GET',
-          headers: {
-            'x-rapidapi-key': RAPIDAPI_KEY,
-            'x-rapidapi-host': RAPIDAPI_INDEED_HOST,
-          },
-        });
-      }
 
       if (!res.ok) {
         console.warn(`[Ingestion] Indeed RapidAPI keyword "${keyword}" failed (HTTP ${res.status})`);
@@ -380,12 +386,7 @@ async function fetchIndeedJobs(): Promise<NormalisedJob[]> {
       }
 
       const data = await res.json() as any;
-      let items: any[] = [];
-      if (Array.isArray(data)) {
-        items = data;
-      } else if (data && typeof data === 'object') {
-        items = data.hits || data.results || data.jobs || data.data || [];
-      }
+      const items = data.returnvalue?.data || [];
 
       for (const item of items) {
         const normalised = mapToNormalisedJob(item, 'indeed');
@@ -395,7 +396,7 @@ async function fetchIndeedJobs(): Promise<NormalisedJob[]> {
       }
 
       console.log(`[Ingestion] Indeed: fetched ${items.length} jobs for keyword "${keyword}"`);
-      await new Promise((r) => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 1000));
     } catch (err) {
       console.error(`[Ingestion] Indeed error for keyword "${keyword}":`, (err as Error).message);
     }
@@ -419,8 +420,7 @@ async function fetchLinkedInJobs(): Promise<NormalisedJob[]> {
 
   for (const keyword of keywords) {
     try {
-      // LinkedIn Job Search API (Fantastic.Jobs) uses active-jb-7d, active-jb-24h, etc.
-      let res = await fetch(`https://${RAPIDAPI_LINKEDIN_HOST}/active-jb-7d?title_filter=${encodeURIComponent(keyword)}&location_filter=United%20States&limit=20`, {
+      const res = await fetch(`https://${RAPIDAPI_LINKEDIN_HOST}/active-jb?time_frame=7d&title=${encodeURIComponent(keyword)}&location=United%20States&limit=20`, {
         method: 'GET',
         headers: {
           'x-rapidapi-key': RAPIDAPI_KEY,
@@ -429,28 +429,12 @@ async function fetchLinkedInJobs(): Promise<NormalisedJob[]> {
       });
 
       if (!res.ok) {
-        // Fallback to active-jb-24h
-        res = await fetch(`https://${RAPIDAPI_LINKEDIN_HOST}/active-jb-24h?title_filter=${encodeURIComponent(keyword)}&location_filter=United%20States&limit=20`, {
-          method: 'GET',
-          headers: {
-            'x-rapidapi-key': RAPIDAPI_KEY,
-            'x-rapidapi-host': RAPIDAPI_LINKEDIN_HOST,
-          },
-        });
-      }
-
-      if (!res.ok) {
         console.warn(`[Ingestion] LinkedIn RapidAPI keyword "${keyword}" failed (HTTP ${res.status})`);
         continue;
       }
 
       const data = await res.json() as any;
-      let items: any[] = [];
-      if (Array.isArray(data)) {
-        items = data;
-      } else if (data && typeof data === 'object') {
-        items = data.jobs || data.results || data.data || [];
-      }
+      const items = Array.isArray(data) ? data : [];
 
       for (const item of items) {
         const normalised = mapToNormalisedJob(item, 'linkedin');
@@ -460,7 +444,7 @@ async function fetchLinkedInJobs(): Promise<NormalisedJob[]> {
       }
 
       console.log(`[Ingestion] LinkedIn: fetched ${items.length} jobs for keyword "${keyword}"`);
-      await new Promise((r) => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 1000));
     } catch (err) {
       console.error(`[Ingestion] LinkedIn error for keyword "${keyword}":`, (err as Error).message);
     }
