@@ -31,7 +31,7 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
 // ── Core middleware ──────────────────────────────────────────────────────────
 
 app.use(cors({
-  origin: 'https://proposal-ai-analyzer.vercel.app',
+  origin: process.env.CLIENT_ORIGIN || 'https://jobsync-ai-app.vercel.app',
   credentials: true
 }));
 
