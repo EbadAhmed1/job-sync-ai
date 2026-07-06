@@ -80,7 +80,7 @@ export default function Login() {
 
         {/* Footer info inside split-screen */}
         <div className="text-xs text-[var(--color-text-muted)] relative z-10">
-          Powered by GPT-4o-mini • 6 active job sources synced.
+          6 active job sources synced.
         </div>
       </div>
 
@@ -210,7 +210,7 @@ export default function Login() {
 
         {/* Footer info for mobile screens */}
         <p className="text-center text-xs text-[var(--color-text-muted)] lg:hidden">
-          Powered by GPT-4o-mini
+          Automated freelance proposal matching &amp; alignment.
         </p>
       </div>
     </div>

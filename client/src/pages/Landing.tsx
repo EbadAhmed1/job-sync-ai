@@ -214,9 +214,9 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── How It Works Section ─────────────────────────────────────────── */}
-      <section id="how-it-works" className="py-20 md:py-28 relative">
-        <div className="max-w-7xl mx-auto px-6">
+      {/* ── Features & How It Works Section ──────────────────────────────── */}
+      <section id="features" className="py-20 md:py-28 relative">
+        <div id="how-it-works" className="max-w-7xl mx-auto px-6">
           <div className="text-center space-y-4 mb-16">
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-[var(--color-text)]">
               How It Works
@@ -286,7 +286,7 @@ export default function Landing() {
             <span className="font-bold text-sm text-[var(--color-text)] tracking-tight">JobSync AI</span>
           </div>
           <p className="text-xs text-[var(--color-text-muted)]">
-            © {new Date().getFullYear()} JobSync AI. All rights reserved. Powered by GPT-4o.
+            © {new Date().getFullYear()} JobSync AI. All rights reserved.
           </p>
         </div>
       </footer>
