@@ -158,7 +158,7 @@ export default function Dashboard() {
         <h1 className="text-2xl sm:text-3xl font-bold text-[var(--color-text)]">
           Good {getGreeting()}, <span className="gradient-text">{authUser?.email?.split('@')[0]}</span>
         </h1>
-        <p className="text-[var(--color-text-secondary)] mt-1 text-sm">Here's what's trending in the freelance tech market.</p>
+        <p className="text-[var(--color-text-secondary)] mt-1 text-sm">Here's what's trending in the tech job market.</p>
       </div>
 
       {/* ── Market Trends Section ─────────────────────────────────────────── */}
@@ -211,7 +211,7 @@ export default function Dashboard() {
             <>
               {/* ── Market Share Chart ────────────────────────────────────── */}
               <div className="mb-8">
-                <p className="text-xs text-[var(--color-text-secondary)] mb-4 font-medium">Domain market share · percentage of freelance tech job market</p>
+                <p className="text-xs text-[var(--color-text-secondary)] mb-4 font-medium">Domain market share · percentage of tech job market</p>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart
                     data={chartData}

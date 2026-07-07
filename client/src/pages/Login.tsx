@@ -73,7 +73,7 @@ export default function Login() {
           <div className="text-center mt-8 space-y-2 max-w-sm">
             <h3 className="text-xl font-bold text-[var(--color-text)]">Analyze Job Listings Instantly</h3>
             <p className="text-sm text-[var(--color-text-secondary)]">
-              Let AI matching evaluate your capabilities, uncover requirements gaps, and build tailored freelance proposals.
+              Let AI matching evaluate your capabilities, uncover requirements gaps, and build tailored job proposals.
             </p>
           </div>
         </div>
@@ -85,7 +85,7 @@ export default function Login() {
       </div>
 
       {/* ── Right Side Panel (Form Section) ─────────────────────────────── */}
-      <div className="w-full lg:w-2/5 flex flex-col justify-between p-8 relative">
+      <div className="w-full lg:w-2/5 flex flex-col justify-between p-6 sm:p-8 relative min-h-screen">
         {/* Top bar with Theme Toggle */}
         <div className="flex justify-between items-center lg:justify-end">
           {/* Brand for mobile screen width */}
@@ -106,7 +106,7 @@ export default function Login() {
         </div>
 
         {/* Main interactive Card / Form */}
-        <div className="flex-1 flex items-center justify-center py-12">
+        <div className="flex-1 flex items-center justify-center py-6 sm:py-12">
           <div className="w-full max-w-sm space-y-6">
             <div className="space-y-2 text-center lg:text-left">
               <h1 className="text-2xl font-bold tracking-tight text-[var(--color-text)]">
@@ -210,7 +210,7 @@ export default function Login() {
 
         {/* Footer info for mobile screens */}
         <p className="text-center text-xs text-[var(--color-text-muted)] lg:hidden">
-          Automated freelance proposal matching &amp; alignment.
+          Your AI Career Copilot — intelligent matching &amp; proposal alignment.
         </p>
       </div>
     </div>

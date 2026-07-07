@@ -64,7 +64,7 @@ export default function Landing() {
     <div className="min-h-screen flex flex-col bg-[var(--color-bg)] transition-colors duration-300">
       {/* ── Navbar ──────────────────────────────────────────────────────── */}
       <nav className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-glass-bg)] backdrop-blur-md transition-colors duration-300">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-900/50">
               <Zap className="w-4 h-4 text-white" strokeWidth={2.5} />
@@ -77,11 +77,11 @@ export default function Landing() {
             <a href="#how-it-works" className="hover:text-[var(--color-text)] transition-colors">How It Works</a>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             {/* Theme Toggle Button */}
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-xl border border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] transition-all duration-200"
+              className="p-1.5 sm:p-2 rounded-xl border border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] transition-all duration-200"
               aria-label="Toggle theme"
             >
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -89,15 +89,15 @@ export default function Landing() {
 
             <Link
               to="/login"
-              className="px-4 py-2 text-sm font-semibold rounded-xl text-[var(--color-text-secondary)] hover:text-[var(--color-text)] transition-colors"
+              className="px-2 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-xl text-[var(--color-text-secondary)] hover:text-[var(--color-text)] transition-colors whitespace-nowrap"
             >
               Sign In
             </Link>
             <Link
               to="/login?mode=register"
-              className="btn-primary"
+              className="btn-primary text-xs sm:text-sm px-3 py-1.5 sm:px-5 sm:py-2.5 whitespace-nowrap"
             >
-              Get Started Free
+              Get Started
             </Link>
           </div>
         </div>
@@ -115,7 +115,7 @@ export default function Landing() {
               Your AI <span className="gradient-text">Career Copilot</span>
             </h1>
             <p className="text-lg md:text-xl text-[var(--color-text-secondary)] max-w-2xl mx-auto lg:mx-0 font-medium leading-relaxed">
-              Aggregate jobs from LinkedIn, Indeed, and more. Get AI-powered compatibility analysis, skill gap checks, and hyper-tailored freelance proposals in seconds.
+              Aggregate jobs from LinkedIn, Indeed, and more. Get AI-powered compatibility analysis, skill gap checks, and hyper-tailored job proposals in seconds.
             </p>
             
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-4">

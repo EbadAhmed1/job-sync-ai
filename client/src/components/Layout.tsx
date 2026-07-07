@@ -125,7 +125,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
           <div className="glass px-3 py-3">
             <p className="text-xs font-semibold text-[var(--color-text)] truncate">{user?.email}</p>
-            <p className="text-[10px] text-[var(--color-text-secondary)] mt-0.5">Freelancer Account</p>
+            <p className="text-[10px] text-[var(--color-text-secondary)] mt-0.5">Professional Account</p>
           </div>
           <button
             onClick={handleLogout}
